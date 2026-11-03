@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>BSAvatarConverter</AssemblyName>
+    <RootNamespace>BSAvatarConverter</RootNamespace>
+    <Version>0.1.0</Version>
+    <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.2.3" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+
+  <!-- The Unity project (converter scripts, shader, templates, UniVRM) ships inside the app as unity.zip. -->
+  <Target Name="PackUnityProject" BeforeTargets="BeforeBuild">
+    <PropertyGroup>
+      <UnityStage>$(IntermediateOutputPath)unity\</UnityStage>
+      <UnityZip>$(IntermediateOutputPath)unity.zip</UnityZip>
+    </PropertyGroup>
+    <ItemGroup>
+      <UnityFiles Include="..\unity\**\*" Exclude="..\unity\Library\**;..\unity\Temp\**;..\unity\Logs\**;..\unity\UserSettings\**;..\unity\obj\**;..\unity\Assets\VRM2BS_Work\**;..\unity\Assets\VRC_Import\**" />
+    </ItemGroup>
+    <RemoveDir Directories="$(UnityStage)" />
+    <Copy SourceFiles="@(UnityFiles)" DestinationFiles="@(UnityFiles->'$(UnityStage)%(RecursiveDir)%(Filename)%(Extension)')" />
+    <ZipDirectory SourceDirectory="$(UnityStage)" DestinationFile="$(UnityZip)" Overwrite="true" />
+    <ItemGroup>
+      <EmbeddedResource Include="$(UnityZip)" LogicalName="unity.zip" />
+    </ItemGroup>
+  </Target>
+</Project>

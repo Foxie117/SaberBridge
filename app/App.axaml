@@ -1,0 +1,57 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="BSAvatarConverter.App"
+             RequestedThemeVariant="Dark">
+  <Application.Resources>
+    <SolidColorBrush x:Key="Bg">#0F1016</SolidColorBrush>
+    <SolidColorBrush x:Key="Panel">#171923</SolidColorBrush>
+    <SolidColorBrush x:Key="PanelHi">#1F2230</SolidColorBrush>
+    <SolidColorBrush x:Key="Line">#2A2E40</SolidColorBrush>
+    <SolidColorBrush x:Key="Muted">#8A90A8</SolidColorBrush>
+    <SolidColorBrush x:Key="Red">#FF3B5C</SolidColorBrush>
+    <SolidColorBrush x:Key="Blue">#2F8CFF</SolidColorBrush>
+    <SolidColorBrush x:Key="Ok">#3DDC97</SolidColorBrush>
+    <SolidColorBrush x:Key="Warn">#FFB547</SolidColorBrush>
+    <LinearGradientBrush x:Key="Saber" StartPoint="0%,0%" EndPoint="100%,0%">
+      <GradientStop Offset="0" Color="#FF3B5C" />
+      <GradientStop Offset="1" Color="#2F8CFF" />
+    </LinearGradientBrush>
+  </Application.Resources>
+  <Application.Styles>
+    <FluentTheme />
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="{StaticResource Saber}" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="28,12" />
+    </Style>
+    <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Saber}" />
+      <Setter Property="Opacity" Value="0.9" />
+    </Style>
+    <Style Selector="Button.primary:disabled /template/ ContentPresenter">
+      <Setter Property="Background" Value="#2A2E40" />
+    </Style>
+    <Style Selector="Button.ghost">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{StaticResource Panel}" />
+      <Setter Property="CornerRadius" Value="14" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="TextBlock.h2">
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.muted">
+      <Setter Property="Foreground" Value="{StaticResource Muted}" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+  </Application.Styles>
+</Application>

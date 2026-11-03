@@ -1,0 +1,42 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Publish Windows
+        run: dotnet publish app -c Release -r win-x64 -o dist/win
+      - name: Publish Linux
+        run: dotnet publish app -c Release -r linux-x64 -o dist/linux
+
+      - name: Package
+        run: |
+          mkdir -p out
+          cp dist/win/BSAvatarConverter.exe out/BSAvatarConverter-win-x64.exe
+          chmod +x dist/linux/BSAvatarConverter
+          tar -czf out/BSAvatarConverter-linux-x64.tar.gz -C dist/linux BSAvatarConverter
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: builds
+          path: out/*
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # a release published by hand (with tested local builds) is left alone
+        run: gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" out/* --title "$GITHUB_REF_NAME" --generate-notes

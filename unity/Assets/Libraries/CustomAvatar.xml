@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>CustomAvatar</name>
+    </assembly>
+    <members>
+        <member name="T:System.Runtime.CompilerServices.IsExternalInit">
+            <summary>
+                Reserved to be used by the compiler for tracking metadata.
+                This class should not be used by developers in source code.
+            </summary>
+            <remarks>
+                This definition is provided by the <i>IsExternalInit</i> NuGet package (https://www.nuget.org/packages/IsExternalInit).
+                Please see https://github.com/manuelroemer/IsExternalInit for more information.
+            </remarks>
+        </member>
+        <member name="T:CustomAvatar.AvatarDescriptor">
+            <summary>
+            Container for an avatar's name and other information configured before exportation.
+            </summary>
+        </member>
+        <member name="F:CustomAvatar.AvatarDescriptor.name">
+            <summary>
+            Avatar's name.
+            </summary>
+        </member>
+        <member name="F:CustomAvatar.AvatarDescriptor.author">
+            <summary>
+            Avatar creator's name.
+            </summary>
+        </member>
+        <member name="F:CustomAvatar.AvatarDescriptor.cover">
+            <summary>
+            The image shown in the in-game avatars list.
+            </summary>
+        </member>
+        <member name="T:CustomAvatar.Scripts.TwistRelaxerV2">
+            <summary>
+            Relaxes the twist rotation if the Transform relative to its parent and a child Transforms, using the Transform's initial rotation as the most relaxed pose.
+            </summary>
+        </member>
+    </members>
+</doc>

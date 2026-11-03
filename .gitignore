@@ -1,0 +1,28 @@
+# .NET
+app/bin/
+app/obj/
+dist/
+
+# Unity (opened locally for development)
+unity/Library/
+unity/Temp/
+unity/Logs/
+unity/UserSettings/
+unity/obj/
+unity/*.csproj
+unity/*.sln
+unity/Assets/VRM2BS_Work/
+unity/Assets/VRM2BS_Work.meta
+unity/Assets/VRC_Import/*
+!unity/Assets/VRC_Import/.gitkeep
+unity/Assets/_CustomAvatar.prefab*
+
+# Paid assets: never commit. The app copies them from the user's own game install.
+unity/Assets/Libraries/FinalIK.dll
+unity/Assets/Libraries/DynamicBone.dll
+
+# Models and results
+*.avatar
+*.vrm
+*.pmx
+*.unitypackage
