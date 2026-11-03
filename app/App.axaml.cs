@@ -20,11 +20,16 @@ public partial class App : Application
             // files dropped onto the exe (or passed on the command line) go straight into the queue;
             // "--convert" also starts the conversion
             string[] args = desktop.Args ?? Array.Empty<string>();
+            // an .avatar opens its preview instead
             List<string> files = args.Where(a => !a.StartsWith("--")).ToList();
-            if (files.Count > 0)
+            List<string> avatars = files.Where(f => f.EndsWith(".avatar", StringComparison.OrdinalIgnoreCase)).ToList();
+            files = files.Except(avatars).ToList();
+            if (files.Count > 0 || avatars.Count > 0)
             {
                 desktop.MainWindow.Opened += async (_, _) =>
                 {
+                    foreach (string a in avatars) await vm.OpenAvatarFileAsync(a);
+                    if (files.Count == 0) return;
                     await vm.AddPathsAsync(files);
                     if (args.Contains("--convert") && vm.ConvertCommand.CanExecute(null)) await vm.ConvertCommand.ExecuteAsync(null);
                 };

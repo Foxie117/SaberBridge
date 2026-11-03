@@ -39,6 +39,51 @@
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="8" />
     </Style>
+    <Style Selector="Button.ghost.accent">
+      <Setter Property="BorderBrush" Value="{StaticResource Blue}" />
+      <Setter Property="Foreground" Value="#CFE3FF" />
+    </Style>
+    <Style Selector="Button.ghost.danger">
+      <Setter Property="BorderBrush" Value="#5A2633" />
+      <Setter Property="Foreground" Value="#FF8FA3" />
+    </Style>
+    <Style Selector="Button.ghost.small">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Padding" Value="8,3" />
+    </Style>
+    <Style Selector="Button.chip">
+      <Setter Property="Background" Value="{StaticResource Panel}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="20" />
+      <Setter Property="Padding" Value="12,6" />
+    </Style>
+    <Style Selector="Button.icon">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="6" />
+      <Setter Property="Foreground" Value="{StaticResource Muted}" />
+    </Style>
+    <Style Selector="Button.icon:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#3A1E26" />
+    </Style>
+    <Style Selector="Button.icon:pointerover">
+      <Setter Property="Foreground" Value="#FF8FA3" />
+    </Style>
+    <Style Selector="Button.cover">
+      <Setter Property="CornerRadius" Value="0" />
+    </Style>
+    <Style Selector="Button.cover:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#1A2340" />
+      <Setter Property="Opacity" Value="0.92" />
+    </Style>
+    <Style Selector="Border.avatar">
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Border.avatar.new">
+      <Setter Property="BorderBrush" Value="{StaticResource Saber}" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
     <Style Selector="Border.card">
       <Setter Property="Background" Value="{StaticResource Panel}" />
       <Setter Property="CornerRadius" Value="14" />

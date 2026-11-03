@@ -85,7 +85,23 @@ public static class UnityRunner
         ("error CS", "The converter scripts failed to compile (see the log)."),
     };
 
+    // one Unity at a time: two editors cannot open the same project
+    private static readonly SemaphoreSlim Lock = new(1, 1);
+
     public static async Task<UnityResult> RunAsync(string unityExe, string method, IEnumerable<string> extraArgs, Action<string> onLine, Action<string> onRaw, CancellationToken ct)
+    {
+        await Lock.WaitAsync(ct);
+        try
+        {
+            return await RunLockedAsync(unityExe, method, extraArgs, onLine, onRaw, ct);
+        }
+        finally
+        {
+            Lock.Release();
+        }
+    }
+
+    private static async Task<UnityResult> RunLockedAsync(string unityExe, string method, IEnumerable<string> extraArgs, Action<string> onLine, Action<string> onRaw, CancellationToken ct)
     {
         Directory.CreateDirectory(AppPaths.Logs);
         string log = Path.Combine(AppPaths.Logs, $"unity-{DateTime.Now:yyyyMMdd-HHmmss-fff}.log");

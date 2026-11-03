@@ -82,6 +82,7 @@ namespace VRM2BS
 
             File.AppendAllLines(Path.Combine(outDir, "conversion_report.txt"), VrmToAvatarConverter.Report);
             Debug.Log("[VRM2BS] REPORT\n" + string.Join("\n", VrmToAvatarConverter.Report));
+            AvatarPreview.RenderBuiltIfRequested();
         }
 
         // ---------------------------------------------------------------- per source file

@@ -1,8 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Text;
-using Avalonia.Media;
-using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using BSAvatarConverter.Core;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -10,105 +8,48 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace BSAvatarConverter.ViewModels;
 
-public partial class QueueItem : ObservableObject
-{
-    public QueueItem(InputJob job)
-    {
-        Job = job;
-        if (job.Kind is JobKind.Unsupported or JobKind.Skipped) SetState(JobState.Skipped, job.Note);
-        else SetState(JobState.Waiting, null);
-    }
-
-    public InputJob Job { get; }
-    public string Name => Job.Name;
-    public string Origin => Job.Origin == Path.GetFileName(Job.File) ? "" : Job.Origin;
-
-    public string Badge => Job.Kind switch { JobKind.Vrm => "VRM", JobKind.Pmx => "MMD", JobKind.VrcPackage => "VRC", _ => "?" };
-
-    public IBrush BadgeBrush => Job.Kind switch
-    {
-        JobKind.Vrm => Brush.Parse("#2F8CFF"),
-        JobKind.Pmx => Brush.Parse("#B068FF"),
-        JobKind.VrcPackage => Brush.Parse("#FF3B5C"),
-        _ => Brush.Parse("#4A4F66"),
-    };
-
-    [ObservableProperty] private JobState _state;
-    [ObservableProperty] private string _statusText = "";
-    [ObservableProperty] private IBrush _statusBrush = Brushes.Gray;
-    [ObservableProperty] private string? _detail;
-    [ObservableProperty] private bool _isWorking;
-    [ObservableProperty] private double _percent;
-    [ObservableProperty] private string _stageText = "";
-
-    public void SetState(JobState state, string? detail)
-    {
-        State = state;
-        Detail = detail;
-        IsWorking = state == JobState.Working;
-        if (!IsWorking) StageText = "";
-        Percent = state == JobState.Done ? 100 : state == JobState.Working ? Percent : 0;
-        (StatusText, StatusBrush) = state switch
-        {
-            JobState.Working => (L.Working, Brush.Parse("#2F8CFF")),
-            JobState.Done => (L.Done, Brush.Parse("#3DDC97")),
-            JobState.Failed => (L.Failed, Brush.Parse("#FF3B5C")),
-            JobState.Skipped => (Job.Kind == JobKind.Unsupported ? L.Unsupported : L.Skipped, Brush.Parse("#FFB547")),
-            _ => (L.Waiting, Brush.Parse("#8A90A8")),
-        };
-    }
-}
-
-public partial class ResultItem : ObservableObject
-{
-    public ResultItem(BuiltAvatar avatar)
-    {
-        File = avatar.File;
-        Name = Path.GetFileNameWithoutExtension(avatar.File);
-        Size = $"{new FileInfo(avatar.File).Length / 1024.0 / 1024.0:0.0} MB";
-        try
-        {
-            if (avatar.Cover != null) Cover = new Bitmap(avatar.Cover);
-        }
-        catch (Exception)
-        {
-            // no cover is fine
-        }
-    }
-
-    public string File { get; }
-    public string Name { get; }
-    public string Size { get; }
-    public Bitmap? Cover { get; }
-    public bool HasNoCover => Cover == null;
-
-    [ObservableProperty] private bool _installed;
-}
-
 public partial class MainViewModel : ObservableObject, IConversionListener
 {
     private readonly Settings _settings = Settings.Load();
     private readonly StringBuilder _log = new();
+    private readonly List<AvatarCard> _builtThisRun = new();
     private CancellationTokenSource? _cts;
     private string? _lastOutDir;
 
     public MainViewModel()
     {
         _autoInstall = _settings.AutoInstall;
+        SystemCheck = new SystemCheckViewModel(this);
         RefreshEnvironment();
+        ShowSystemCheck = SystemCheck.Blocked;
     }
 
+    public SystemCheckViewModel SystemCheck { get; }
     public ObservableCollection<QueueItem> Queue { get; } = new();
-    public ObservableCollection<ResultItem> Results { get; } = new();
     public ObservableCollection<GameInstall> Games { get; } = new();
+
+    // all library cards, and the sorted / filtered list the view shows
+    public List<AvatarCard> Avatars { get; } = new();
+    public ObservableCollection<AvatarCard> VisibleAvatars { get; } = new();
+
+    /// <summary>Set by the view: asks a yes/no question (title, text) and returns the answer.</summary>
+    public Func<string, string, Task<bool>>? Confirm { get; set; }
+
+    /// <summary>Set by the view: opens the preview window for a card.</summary>
+    public Action<AvatarCard>? OpenPreviewWindow { get; set; }
+
+    /// <summary>Set by the view: brings the top of the library (where new avatars land) into view.</summary>
+    public Action? ScrollLibraryToTop { get; set; }
+
+    /// <summary>Set by the view: folder picker for the game.</summary>
+    public Func<Task<string?>>? PickFolder { get; set; }
 
     [ObservableProperty] private GameInstall? _selectedGame;
     [ObservableProperty] private string? _unityPath;
     [ObservableProperty] private string _unityText = "";
     [ObservableProperty] private bool _unityOk;
-    [ObservableProperty] private string _gameText = "";
     [ObservableProperty] private bool _gameOk;
-    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(ConvertCommand))] private bool _isBusy;
+    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(ConvertCommand), nameof(PreviewAllCommand))] private bool _isBusy;
     [ObservableProperty] private double _progress;
     [ObservableProperty] private bool _progressIndeterminate;
     [ObservableProperty] private string _status = L.Ready;
@@ -118,12 +59,18 @@ public partial class MainViewModel : ObservableObject, IConversionListener
     [ObservableProperty] private string _logText = "";
     [ObservableProperty] private bool _showLog;
     [ObservableProperty] private bool _showSettings;
+    [ObservableProperty] private bool _showSystemCheck;
     [ObservableProperty] private bool _autoInstall;
+    [ObservableProperty] private string _searchText = "";
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(PreviewAllLabel), nameof(HasMissingPreviews))] private int _missingPreviews;
 
     public bool QueueEmpty => Queue.Count == 0;
-    public bool ResultsEmpty => Results.Count == 0;
-    public string ResultsHeader => Results.Count == 0 ? L.Results : $"{L.Results} · {Results.Count}";
-    public string DataFolder => AppPaths.Data;
+    public bool LibraryEmpty => Avatars.Count == 0;
+    public string LibraryHeader => Avatars.Count == 0 ? L.Library : $"{L.Library} · {Avatars.Count}";
+    public bool HasNewToInstall => Avatars.Any(a => a.IsNew && a.CanInstall);
+    public string PreviewAllLabel => L.PreviewAll(MissingPreviews);
+    public bool HasMissingPreviews => MissingPreviews > 0;
+    public string LanguageCode => L.Ru ? "RU" : "EN";
 
     partial void OnAutoInstallChanged(bool value)
     {
@@ -131,30 +78,36 @@ public partial class MainViewModel : ObservableObject, IConversionListener
         _settings.Save();
     }
 
+    partial void OnSearchTextChanged(string value) => RefreshVisible();
+
     partial void OnSelectedGameChanged(GameInstall? value)
     {
         GameOk = value is { HasCustomAvatars: true };
-        GameText = value == null ? L.GameMissing : value.HasCustomAvatars ? value.Label : $"{value.Label} · {L.NoCustomAvatars}";
         if (value != null && value.Path != _settings.GamePath)
         {
             _settings.GamePath = value.Path;
             _settings.Save();
         }
 
+        SystemCheck?.Refresh();
         ConvertCommand.NotifyCanExecuteChanged();
+        _ = LoadLibraryAsync();
     }
 
     public void RefreshEnvironment()
     {
         UnityPath = UnityLocator.Find(_settings.UnityPath);
-        UnityOk = UnityPath != null;
+        UnityOk = UnityPath != null && Tools.HasWindowsBuildSupport(UnityPath);
         UnityText = UnityPath == null ? L.UnityMissing : $"Unity {UnityLocator.VersionOf(UnityPath) ?? ""}";
 
+        GameInstall? before = SelectedGame;
         Games.Clear();
         foreach (GameInstall g in GameLocator.FindAll(_settings.GamePath)) Games.Add(g);
         SelectedGame = Games.FirstOrDefault(g => g.Path == _settings.GamePath) ?? Games.FirstOrDefault();
-        OnSelectedGameChanged(SelectedGame);
+        if (SelectedGame == before) OnSelectedGameChanged(SelectedGame);
+        SystemCheck.Refresh();
         ConvertCommand.NotifyCanExecuteChanged();
+        PreviewAllCommand.NotifyCanExecuteChanged();
     }
 
     public void SetUnity(string exe)
@@ -170,6 +123,13 @@ public partial class MainViewModel : ObservableObject, IConversionListener
         _settings.Save();
         RefreshEnvironment();
     }
+
+    public async Task PickGameAsync()
+    {
+        if (PickFolder != null && await PickFolder() is { } dir) SetGame(dir);
+    }
+
+    // ---------------------------------------------------------------- queue
 
     public async Task AddPathsAsync(IEnumerable<string> paths)
     {
@@ -212,7 +172,9 @@ public partial class MainViewModel : ObservableObject, IConversionListener
         ConvertCommand.NotifyCanExecuteChanged();
     }
 
-    private bool CanConvert() => !IsBusy && UnityOk && GameOk && Queue.Any(q => q.State is JobState.Waiting or JobState.Failed);
+    // ---------------------------------------------------------------- conversion
+
+    private bool CanConvert() => !IsBusy && !SystemCheck.Blocked && UnityOk && GameOk && Queue.Any(q => q.State is JobState.Waiting or JobState.Failed);
 
     [RelayCommand(CanExecute = nameof(CanConvert))]
     private async Task ConvertAsync()
@@ -225,39 +187,52 @@ public partial class MainViewModel : ObservableObject, IConversionListener
         }
 
         foreach (QueueItem q in todo) q.SetState(JobState.Waiting, null);
+        _builtThisRun.Clear();
+        Converter converter = new(UnityPath, SelectedGame, this);
+        _lastOutDir = converter.OutDir;
+
+        await RunBusyAsync(async ct =>
+        {
+            await converter.RunAsync(todo.Select(q => q.Job).ToList(), ct);
+
+            // let the queued result/state updates from the worker land first
+            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+            string summary = L.Finished(_builtThisRun.Count, Queue.Count(q => q.State == JobState.Failed));
+            if (AutoInstall && _builtThisRun.Count > 0) summary += "  ·  " + Install(_builtThisRun.ToList());
+            if (Queue.Any(q => q.State == JobState.Failed)) ShowLog = true;
+            return summary;
+        }, () =>
+        {
+            foreach (QueueItem q in todo.Where(q => q.State == JobState.Working)) q.SetState(JobState.Waiting, null);
+        });
+    }
+
+    /// <summary>Shared busy/timer/cancel handling for anything that runs Unity.</summary>
+    private async Task RunBusyAsync(Func<CancellationToken, Task<string>> work, Action? onCancel = null)
+    {
         IsBusy = true;
         _cts = new CancellationTokenSource();
         Stopwatch clock = Stopwatch.StartNew();
         DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(1) };
         timer.Tick += (_, _) => Elapsed = clock.Elapsed.ToString(clock.Elapsed.TotalHours >= 1 ? @"h\:mm\:ss" : @"m\:ss");
         timer.Start();
-        int builtBefore = Results.Count;
         string finalStatus = L.Ready;
-        Converter converter = new(UnityPath, SelectedGame, this);
-        _lastOutDir = converter.OutDir;
 
         try
         {
-            await converter.RunAsync(todo.Select(q => q.Job).ToList(), _cts.Token);
-
-            // let the queued result/state updates from the worker land first
-            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
-            int built = Results.Count - builtBefore;
-            finalStatus = L.Finished(built, Queue.Count(q => q.State == JobState.Failed));
-            if (AutoInstall && built > 0) finalStatus += "  ·  " + InstallAll(Results.Take(built).ToList());
-            if (Queue.Any(q => q.State == JobState.Failed)) ShowLog = true;
+            finalStatus = await work(_cts.Token);
         }
         catch (OperationCanceledException)
         {
             finalStatus = L.Cancelled;
-            foreach (QueueItem q in todo.Where(q => q.State == JobState.Working)) q.SetState(JobState.Waiting, null);
+            onCancel?.Invoke();
         }
         catch (Exception ex)
         {
             finalStatus = ex.Message;
             AppendLog("⚠ " + ex);
             ShowLog = true;
-            foreach (QueueItem q in todo.Where(q => q.State == JobState.Working)) q.SetState(JobState.Failed, ex.Message);
+            foreach (QueueItem q in Queue.Where(q => q.State == JobState.Working)) q.SetState(JobState.Failed, ex.Message);
         }
         finally
         {
@@ -268,31 +243,145 @@ public partial class MainViewModel : ObservableObject, IConversionListener
             PercentText = "";
             _cts = null;
             Status = finalStatus;
+            UpdateLibraryCounters();
         }
     }
 
     [RelayCommand]
     private void Cancel() => _cts?.Cancel();
 
-    [RelayCommand]
-    private void InstallAllResults() => Status = InstallAll(Results.Where(r => !r.Installed).ToList());
+    // ---------------------------------------------------------------- library
 
-    [RelayCommand]
-    private void InstallOne(ResultItem item) => Status = InstallAll(new List<ResultItem> { item });
-
-    private string InstallAll(List<ResultItem> items)
+    public async Task LoadLibraryAsync()
     {
-        if (SelectedGame == null || items.Count == 0) return Status;
+        string? dir = SelectedGame?.AvatarsDir;
+        Dictionary<string, string> installed = new(StringComparer.OrdinalIgnoreCase);
+        if (dir != null && Directory.Exists(dir))
+        {
+            foreach (string f in Directory.GetFiles(dir, "*.avatar")) installed[Path.GetFileName(f)] = f;
+        }
+
+        // drop cards of avatars that left the game folder (unless converted in this session)
+        foreach (AvatarCard c in Avatars.ToList())
+        {
+            if (installed.TryGetValue(c.FileName, out string? path)) c.InstalledFile = path;
+            else if (c.OutputFile != null) c.InstalledFile = null;
+            else Avatars.Remove(c);
+        }
+
+        List<AvatarCard> added = new();
+        foreach (var (name, path) in installed)
+        {
+            if (Avatars.Any(c => c.FileName.Equals(name, StringComparison.OrdinalIgnoreCase))) continue;
+            AvatarCard card = new(name) { InstalledFile = path, AddedAt = File.GetLastWriteTime(path) };
+            Avatars.Add(card);
+            added.Add(card);
+        }
+
+        RefreshVisible();
+        foreach (AvatarCard c in added) await c.LoadMetaAsync();
+        UpdateLibraryCounters();
+    }
+
+    private void RefreshVisible()
+    {
+        IEnumerable<AvatarCard> q = Avatars;
+        if (!string.IsNullOrWhiteSpace(SearchText)) q = q.Where(a => a.Name.Contains(SearchText.Trim(), StringComparison.OrdinalIgnoreCase));
+
+        // fresh conversions first, newest on top; then the game's avatars by name
+        List<AvatarCard> sorted = q.OrderByDescending(a => a.IsNew).ThenByDescending(a => a.IsNew ? a.AddedAt : DateTime.MinValue)
+            .ThenBy(a => a.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+        VisibleAvatars.Clear();
+        foreach (AvatarCard a in sorted) VisibleAvatars.Add(a);
+        OnPropertyChanged(nameof(LibraryEmpty));
+        OnPropertyChanged(nameof(LibraryHeader));
+    }
+
+    private void UpdateLibraryCounters()
+    {
+        MissingPreviews = Avatars.Count(a => !a.HasPreview && a.PreviewFile != null);
+        OnPropertyChanged(nameof(HasNewToInstall));
+        PreviewAllCommand.NotifyCanExecuteChanged();
+    }
+
+    private bool CanPreviewAll() => !IsBusy && UnityPath != null && MissingPreviews > 0;
+
+    [RelayCommand(CanExecute = nameof(CanPreviewAll))]
+    private async Task PreviewAllAsync() => await MakePreviewsAsync(Avatars.Where(a => !a.HasPreview && a.PreviewFile != null).ToList());
+
+    public async Task MakePreviewsAsync(List<AvatarCard> cards)
+    {
+        if (UnityPath == null || cards.Count == 0 || IsBusy) return;
+        string unity = UnityPath;
+        GameInstall? game = SelectedGame;
+
+        await RunBusyAsync(async ct =>
+        {
+            Status = L.MakingPreviews(1, cards.Count);
+            SubStatus = ProjectSetup.IsFirstImport ? L.FirstRunHint : L.Phase("unity-start");
+            ProgressIndeterminate = true;
+            PercentText = "";
+            if (game != null) await Task.Run(() => ProjectSetup.Ensure(game), ct);
+
+            await PreviewCache.RenderAsync(unity, cards.Select(c => c.PreviewFile!).ToList(), line => Dispatcher.UIThread.Post(() =>
+            {
+                AppendLog(line);
+                // "PREVIEW 3/12 name.avatar"
+                string[] parts = line.Split(' ', 3);
+                if (parts.Length >= 2 && parts[0] == "PREVIEW" && parts[1].Split('/') is [var a, var b] && int.TryParse(a, out int i) && int.TryParse(b, out int n))
+                {
+                    ProgressIndeterminate = false;
+                    Progress = 100.0 * (i - 1) / n;
+                    PercentText = $"{Progress:0}%";
+                    Status = L.MakingPreviews(i, n);
+                    SubStatus = parts.ElementAtOrDefault(2) ?? "";
+                }
+            }), ct);
+
+            foreach (AvatarCard c in cards) await c.LoadMetaAsync();
+            return L.PreviewsDone;
+        });
+    }
+
+    [RelayCommand]
+    private void OpenPreview(AvatarCard card) => OpenPreviewWindow?.Invoke(card);
+
+    public async Task OpenAvatarFileAsync(string file)
+    {
+        if (!File.Exists(file)) return;
+        string full = Path.GetFullPath(file);
+        AvatarCard? card = Avatars.FirstOrDefault(a => string.Equals(a.PreviewFile, full, StringComparison.OrdinalIgnoreCase));
+        if (card == null)
+        {
+            card = new AvatarCard(Path.GetFileName(full)) { OutputFile = full };
+            await card.LoadMetaAsync();
+        }
+
+        OpenPreviewWindow?.Invoke(card);
+    }
+
+    [RelayCommand]
+    private void InstallCard(AvatarCard card) => Status = Install(new List<AvatarCard> { card });
+
+    [RelayCommand]
+    private void InstallAllNew() => Status = Install(Avatars.Where(a => a.IsNew && a.CanInstall).ToList());
+
+    public string Install(List<AvatarCard> cards)
+    {
+        if (SelectedGame == null || cards.Count == 0) return Status;
         try
         {
             Directory.CreateDirectory(SelectedGame.AvatarsDir);
-            foreach (ResultItem r in items)
+            foreach (AvatarCard c in cards.Where(c => c.OutputFile != null))
             {
-                File.Copy(r.File, Path.Combine(SelectedGame.AvatarsDir, Path.GetFileName(r.File)), true);
-                r.Installed = true;
+                string dst = Path.Combine(SelectedGame.AvatarsDir, c.FileName);
+                File.Copy(c.OutputFile!, dst, true);
+                c.InstalledFile = dst;
+                c.InstalledIsCurrent = true;
             }
 
-            return L.InstalledTo(items.Count, SelectedGame.AvatarsDir);
+            OnPropertyChanged(nameof(HasNewToInstall));
+            return L.InstalledTo(cards.Count, SelectedGame.AvatarsDir);
         }
         catch (Exception ex)
         {
@@ -301,19 +390,50 @@ public partial class MainViewModel : ObservableObject, IConversionListener
     }
 
     [RelayCommand]
-    private void OpenOutput() => OpenPath(_lastOutDir ?? AppPaths.Output);
+    public async Task DeleteCard(AvatarCard card)
+    {
+        string? target = card.InstalledFile ?? card.OutputFile;
+        if (target == null || IsBusy) return;
+        string text = card.InstalledFile != null ? L.DeleteFromGame(card.Name) : L.DeleteConverted(card.Name);
+        if (Confirm != null && !await Confirm(L.DeleteTitle, text)) return;
+
+        try
+        {
+            Trash.Move(target);
+            if (target == card.InstalledFile)
+            {
+                card.InstalledFile = null;
+                card.InstalledIsCurrent = true;
+            }
+            else
+            {
+                card.OutputFile = null;
+            }
+
+            if (card.InstalledFile == null && card.OutputFile == null) Avatars.Remove(card);
+            RefreshVisible();
+            UpdateLibraryCounters();
+            Status = L.Deleted(card.Name);
+        }
+        catch (Exception ex)
+        {
+            Status = ex.Message;
+        }
+    }
+
+    // ---------------------------------------------------------------- misc commands
+
+    [RelayCommand]
+    private void OpenOutput() => Tools.Open(Directory.CreateDirectory(_lastOutDir ?? AppPaths.Output).FullName);
 
     [RelayCommand]
     private void OpenGameAvatars()
     {
-        if (SelectedGame != null) OpenPath(SelectedGame.AvatarsDir);
+        if (SelectedGame != null) Tools.Open(Directory.CreateDirectory(SelectedGame.AvatarsDir).FullName);
     }
 
     [RelayCommand]
-    private void OpenDataFolder() => OpenPath(AppPaths.Data);
-
-    [RelayCommand]
-    private void GetUnity() => OpenPath("https://unity.com/releases/editor/archive");
+    private void OpenDataFolder() => Tools.Open(Directory.CreateDirectory(AppPaths.Data).FullName);
 
     [RelayCommand]
     private void SetLanguage(string code)
@@ -328,23 +448,19 @@ public partial class MainViewModel : ObservableObject, IConversionListener
     }
 
     [RelayCommand]
+    private void ToggleLanguage() => SetLanguage(L.Ru ? "en" : "ru");
+
+    [RelayCommand]
     private void ToggleLog() => ShowLog = !ShowLog;
 
     [RelayCommand]
     private void ToggleSettings() => ShowSettings = !ShowSettings;
 
-    private static void OpenPath(string path)
+    [RelayCommand]
+    private void ToggleSystemCheck()
     {
-        try
-        {
-            if (!path.StartsWith("http")) Directory.CreateDirectory(path);
-            if (OperatingSystem.IsWindows()) Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
-            else Process.Start("xdg-open", path);
-        }
-        catch (Exception)
-        {
-            // nothing useful to do if the desktop cannot open it
-        }
+        if (!ShowSystemCheck) RefreshEnvironment();
+        ShowSystemCheck = !ShowSystemCheck;
     }
 
     private string? _lastLogLine;
@@ -352,26 +468,20 @@ public partial class MainViewModel : ObservableObject, IConversionListener
     // progress for the first import arrives many times; keep the log readable
     private void AppendLogOnce(string line)
     {
-        if (IsRepeat(line)) return;
+        string key = line.Split(" · ")[0] + line.Split(" · ").ElementAtOrDefault(1);
+        if (key == _lastLogLine) return;
+        _lastLogLine = key;
         AppendLog(line);
     }
 
-    private bool IsRepeat(string line)
-    {
-        string key = line.Split(" · ")[0] + line.Split(" · ").ElementAtOrDefault(1);
-        bool same = key == _lastLogLine;
-        _lastLogLine = key;
-        return same;
-    }
-
-    private void AppendLog(string line)
+    public void AppendLog(string line)
     {
         _log.AppendLine(line);
         if (_log.Length > 200_000) _log.Remove(0, _log.Length - 150_000);
         LogText = _log.ToString();
     }
 
-    // ---- IConversionListener (called from worker threads)
+    // ---------------------------------------------------------------- IConversionListener (called from worker threads)
 
     void IConversionListener.Log(string line) => Dispatcher.UIThread.Post(() => AppendLog(line));
 
@@ -402,7 +512,7 @@ public partial class MainViewModel : ObservableObject, IConversionListener
             item.StageText = L.Phase(p.Phase);
         }
 
-        if (p.Phase.StartsWith("stage:") || p.Phase is "first-import" or "unity-start" or "unpack") AppendLogOnce($"── {Status} · {L.Phase(p.Phase)}");
+        if (p.Phase.StartsWith("stage:") || p.Phase is "first-import" or "unity-start" or "unpack" or "preview") AppendLogOnce($"── {Status} · {L.Phase(p.Phase)}");
     });
 
     void IConversionListener.JobState(InputJob job, JobState state, string? detail) =>
@@ -414,10 +524,25 @@ public partial class MainViewModel : ObservableObject, IConversionListener
         if (q is { State: JobState.Working }) q.SetState(state, detail);
     });
 
-    void IConversionListener.Built(BuiltAvatar avatar) => Dispatcher.UIThread.Post(() =>
+    void IConversionListener.Built(BuiltAvatar avatar) => Dispatcher.UIThread.Post(async () =>
     {
-        Results.Insert(0, new ResultItem(avatar));
-        OnPropertyChanged(nameof(ResultsEmpty));
-        OnPropertyChanged(nameof(ResultsHeader));
+        string name = Path.GetFileName(avatar.File);
+        AvatarCard? card = Avatars.FirstOrDefault(a => a.FileName.Equals(name, StringComparison.OrdinalIgnoreCase));
+        if (card == null)
+        {
+            card = new AvatarCard(name);
+            Avatars.Add(card);
+        }
+
+        card.OutputFile = avatar.File;
+        card.IsNew = true;
+        card.AddedAt = DateTime.Now;
+        card.InstalledIsCurrent = card.InstalledFile == null;
+        card.Cover = null;
+        _builtThisRun.Add(card);
+        RefreshVisible();
+        ScrollLibraryToTop?.Invoke();
+        await card.LoadMetaAsync(avatar.Cover);
+        UpdateLibraryCounters();
     });
 }

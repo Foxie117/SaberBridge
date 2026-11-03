@@ -93,6 +93,7 @@ namespace VRM2BS
 
             File.WriteAllLines(Path.Combine(outDir, "conversion_report.txt"), Report);
             Debug.Log("[VRM2BS] REPORT\n" + string.Join("\n", Report));
+            AvatarPreview.RenderBuiltIfRequested();
         }
 
         // ---------------------------------------------------------------- template
@@ -858,6 +859,7 @@ namespace VRM2BS
 
                 File.Copy(Path.Combine(tempFolder, manifest.GetAllAssetBundles()[0]), destination, true);
                 ExportCover(root, destination);
+                AvatarPreview.Built.Add(destination);
             }
             finally
             {

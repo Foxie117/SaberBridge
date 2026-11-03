@@ -171,7 +171,7 @@ public sealed class Converter
         _unitShare = 0;
         Report(firstImport ? "first-import" : "unity-start");
 
-        UnityResult r = await UnityRunner.RunAsync(_unity, method, args.Concat(new[] { "-outDir", _outDir, "-coverDir", _coverDir }), line =>
+        UnityResult r = await UnityRunner.RunAsync(_unity, method, args.Concat(new[] { "-outDir", _outDir, "-coverDir", _coverDir, "-previewDir", PreviewCache.Root }), line =>
         {
             if (firstImport)
             {
@@ -203,6 +203,15 @@ public sealed class Converter
                 // a package with several avatars keeps cycling through the stages; never move backwards within one unit
                 if (StageShare.TryGetValue(stage, out double share)) _unitShare = Math.Max(_unitShare, share);
                 Report("stage:" + stage);
+                return;
+            }
+
+            // after the models: each built .avatar is loaded back, checked and rendered for the preview
+            if (line.StartsWith("PREVIEW ") && !line.StartsWith("PREVIEW FAIL"))
+            {
+                _ui.Log(line);
+                _model = line.Split(' ', 3).ElementAtOrDefault(2) is { } f ? Path.GetFileNameWithoutExtension(f) : _model;
+                Report("preview");
                 return;
             }
 

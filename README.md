@@ -15,6 +15,13 @@ Converts VRM, VRChat and MMD models into `.avatar` files for the Beat Saber **Cu
 
 Every avatar gets full-body IK (VRIK), finger poses, first-person head hiding, tail physics when the model has tail bones, a name and a cover.
 
+### In the app
+
+- **System check** — finds Beat Saber (BSManager / Steam), the Custom Avatars version, Unity Hub, the right Unity editor, the Windows build module and the Unity license. Anything missing comes with a button: download and install BSManager, Unity Hub or Unity 2021.3.16f1 from the official sources, or open Unity Hub's install dialog for the exact version. A table shows which Unity builds avatars for which Beat Saber version.
+- **Library** — every avatar already installed in the selected game copy, plus fresh conversions on top with a NEW badge. Search, install, replace an older copy in the game, or delete (always to the recycle bin, with a confirmation).
+- **Preview** — after converting (or on demand for any installed avatar) Unity loads the `.avatar` the way the mod does, checks it (trackers, IK, finger poses, physics chains, shaders, triangle count, height) and renders a turntable plus idle / wave / walk animations. The preview window plays them with the skeleton drawn on top (body bones blue, physics bones orange); drag to rotate.
+- Russian and English UI, picked from the system language, switchable in the header.
+
 ## Requirements
 
 - **Unity 2021.3.16f1** installed via [Unity Hub](https://unity.com/download), signed in with a free Personal license. You never open it yourself; the app runs it in the background.

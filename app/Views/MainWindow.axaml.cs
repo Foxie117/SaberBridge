@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using BSAvatarConverter.ViewModels;
@@ -24,6 +25,15 @@ public partial class MainWindow : Window
         LogBox.PropertyChanged += (_, e) =>
         {
             if (e.Property == TextBox.TextProperty) LogBox.CaretIndex = LogBox.Text?.Length ?? 0;
+        };
+
+        DataContextChanged += (_, _) =>
+        {
+            if (DataContext is not MainViewModel vm) return;
+            vm.Confirm = ConfirmAsync;
+            vm.PickFolder = PickFolderAsync;
+            vm.ScrollLibraryToTop = () => LibraryScroll.Offset = default;
+            vm.OpenPreviewWindow = card => new PreviewWindow { DataContext = new PreviewViewModel(vm, card) }.Show(this);
         };
     }
 
@@ -74,9 +84,48 @@ public partial class MainWindow : Window
         if (files.FirstOrDefault()?.TryGetLocalPath() is { } path) Vm.SetUnity(path);
     }
 
-    private async void PickGame_Click(object? sender, RoutedEventArgs e)
+    private async void PickGame_Click(object? sender, RoutedEventArgs e) => await Vm.PickGameAsync();
+
+    private async Task<string?> PickFolderAsync()
     {
         var dirs = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions { Title = L.Game });
-        if (dirs.FirstOrDefault()?.TryGetLocalPath() is { } path) Vm.SetGame(path);
+        return dirs.FirstOrDefault()?.TryGetLocalPath();
+    }
+
+    // a small modal over whichever of our windows is in front (the main one or a preview)
+    private async Task<bool> ConfirmAsync(string title, string text)
+    {
+        Window owner = OwnedWindows.FirstOrDefault(w => w.IsActive) ?? this;
+        bool result = false;
+        Window dialog = new()
+        {
+            Title = title,
+            Width = 440,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background = (IBrush)this.FindResource("Panel")!,
+            Icon = Icon,
+        };
+
+        Button yes = new() { Content = L.Delete, Classes = { "ghost", "danger" } };
+        Button no = new() { Content = L.Cancel, Classes = { "ghost" } };
+        yes.Click += (_, _) => { result = true; dialog.Close(); };
+        no.Click += (_, _) => dialog.Close();
+
+        dialog.Content = new StackPanel
+        {
+            Margin = new Avalonia.Thickness(24),
+            Spacing = 14,
+            Children =
+            {
+                new TextBlock { Text = title, FontSize = 18, FontWeight = FontWeight.Bold },
+                new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, Classes = { "muted" }, FontSize = 13 },
+                new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, HorizontalAlignment = HorizontalAlignment.Right, Children = { no, yes } },
+            },
+        };
+
+        await dialog.ShowDialog(owner);
+        return result;
     }
 }
