@@ -2,7 +2,9 @@
 
 Converts VRM, VRChat and MMD models into `.avatar` files for the Beat Saber **Custom Avatars** mod (5.4.x, Beat Saber 1.40). Drop your models into the window and press **Convert**. The app also installs the results into the game. The interface is available in English and Russian.
 
-![How to use it: drop models, press Convert, preview, install](docs/how-to.gif)
+![How to use it: drop models, press Convert, preview, install](docs/how-to.webp)
+
+<sub>[Watch as a video (MP4)](docs/how-to.mp4)</sub>
 
 ## How to use it
 
