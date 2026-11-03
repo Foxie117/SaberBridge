@@ -1,8 +1,28 @@
 # Beat Saber Avatar Converter
 
-Converts VRM, VRChat and MMD models into `.avatar` files for the Beat Saber **Custom Avatars** mod (5.4.x, Beat Saber 1.40). Drop your models into the window and press **Convert**. The app also installs the results into the game.
+Converts VRM, VRChat and MMD models into `.avatar` files for the Beat Saber **Custom Avatars** mod (5.4.x, Beat Saber 1.40). Drop your models into the window and press **Convert**. The app also installs the results into the game. The interface is available in English and Russian.
 
-Конвертирует VRM, VRChat и MMD модели в `.avatar` для мода **Custom Avatars** в Beat Saber. Перетащи модели в окно, нажми **Конвертировать**, готовые аватары сами встанут в игру. Интерфейс на русском и английском.
+![How to use it: drop models, press Convert, preview, install](docs/how-to.gif)
+
+## How to use it
+
+1. **Drop your models** onto the window (or press *Choose files*): `.vrm`, VRChat `.unitypackage`, MMD `.pmx`, or a `.zip` / folder that contains them.
+2. **Press Convert.** Each model shows its current stage (reading the model, skeleton, physics, materials, IK, cover, packing) with a percentage and a timer.
+3. **Check the result.** New avatars appear at the top of the library with a **NEW** badge. A coloured dot on each card shows the result of the avatar check (green: all good, orange: worth a look).
+4. **Click a card to open its preview.** You can play the idle, wave and walk animations, turn the model with the mouse, and turn the skeleton overlay on or off.
+5. **Press Install** (or *Install all*) to copy the avatars into the selected Beat Saber copy. Delete moves a file to the recycle bin.
+
+If something is missing (Unity, Unity Hub, BSManager, the game or the Custom Avatars mod), the **system check** opens on its own. It offers a download or install button for each missing item.
+
+## Screenshots
+
+| Library with fresh conversions | Converting |
+|---|---|
+| ![Library](docs/main.png) | ![Converting](docs/converting.png) |
+| **Preview with skeleton and avatar check** | **System check** |
+| ![Preview](docs/preview.png) | ![System check](docs/system-check.png) |
+
+<sub>Demo models: *Sendagaya Shino*, *Sendagaya Shibu*, *Vita*, *Vivi* and *Victoria Rubin*, the VRoid Studio sample models by pixiv Inc., released under [CC0](https://creativecommons.org/publicdomain/zero/1.0/) (see [pixiv's terms](https://vroid.pixiv.help/hc/en-us/articles/4402614652569)).</sub>
 
 ## What it handles
 
@@ -63,6 +83,9 @@ Open `unity/` in Unity 2021.3.16f1 after copying `FinalIK.dll` and `DynamicBone.
 - `VRM2BS.PmxAvatarConverter.Run -jobsFile <file> -outDir <dir>` (lines `Name|body.pmx[|outfit.pmx]`)
 - `VRM2BS.VrcAvatarConverter.Run -importDir Assets/VRC_Import/<Name> -outDir <dir>` (optional `variants.txt` for colour variants)
 - `VRM2BS.VrmToAvatarConverter.Validate -outDir <dir>`: loads built bundles like the mod does
+- `VRM2BS.AvatarPreview.Run -avatarList <file> -previewDir <dir>`: checks `.avatar` files and renders the preview frames
+
+App switches for development: `BSAC_DATA=<folder>` uses another data folder (clean demo screenshots); `BSAC_SIMULATE_MISSING=1` shows the system check as if nothing were installed.
 
 ## Licenses
 

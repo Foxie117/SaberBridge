@@ -30,6 +30,10 @@
               </Panel>
             </Viewbox>
           </Border>
+          <Border IsVisible="{Binding IsTurntable}" Background="#99000000" CornerRadius="12" Padding="12,5" Margin="12"
+                  HorizontalAlignment="Center" VerticalAlignment="Bottom" IsHitTestVisible="False">
+            <TextBlock Text="{x:Static app:L.DragToRotate}" FontSize="12" Foreground="#CCFFFFFF" />
+          </Border>
 
           <StackPanel IsVisible="{Binding !HasData}" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="14" MaxWidth="380">
             <TextBlock Text="{x:Static app:L.PreviewMissing}" TextWrapping="Wrap" TextAlignment="Center" Classes="muted" FontSize="13" />
@@ -68,8 +72,6 @@
             </ListBox.ItemTemplate>
           </ListBox>
         </StackPanel>
-        <TextBlock Grid.Column="1" Classes="muted" Text="{x:Static app:L.DragToRotate}" VerticalAlignment="Center" Margin="12,0"
-                   IsVisible="{Binding IsTurntable}" />
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
           <CheckBox Content="{x:Static app:L.Skeleton}" IsChecked="{Binding ShowSkeleton}" />
           <CheckBox Content="{x:Static app:L.SkeletonOnly}" IsChecked="{Binding SkeletonOnly}" />

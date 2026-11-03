@@ -5,7 +5,10 @@ namespace BSAvatarConverter.Core;
 public static class AppPaths
 {
     // %LOCALAPPDATA%\BSAvatarConverter on Windows, ~/.local/share/BSAvatarConverter on Linux
-    public static string Data { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BSAvatarConverter");
+    // BSAC_DATA points the app at another data folder (used for clean demo screenshots)
+    public static string Data { get; } = Environment.GetEnvironmentVariable("BSAC_DATA") is { Length: > 0 } custom
+        ? custom
+        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BSAvatarConverter");
     public static string UnityProject => Path.Combine(Data, "unity");
     public static string Output => Path.Combine(Data, "output");
     public static string Temp => Path.Combine(Data, "temp");
