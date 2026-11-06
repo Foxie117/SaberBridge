@@ -32,6 +32,7 @@ namespace VRM2BS
             public Vector3 leftHandFromBone, rightHandFromBone;
             public float handLength;
             public Quaternion leftHandRotation, rightHandRotation;
+            public Vector3 leftArmDir, rightArmDir;
             public Vector3 pelvisFromHips;
             public Quaternion pelvisRotation;
             public Vector3 leftLegFromFoot, rightLegFromFoot;
@@ -132,6 +133,8 @@ namespace VRM2BS
             t.rightHandFromBone = tRightHand.position - rightHand.position;
             t.leftHandRotation = tLeftHand.rotation;
             t.rightHandRotation = tRightHand.rotation;
+            t.leftArmDir = ArmDir(animator, true);
+            t.rightArmDir = ArmDir(animator, false);
             t.pelvisFromHips = tPelvis.position - hips.position;
             t.pelvisRotation = tPelvis.rotation;
             t.leftLegFromFoot = tLeftLeg.position - leftFoot.position;
@@ -144,6 +147,18 @@ namespace VRM2BS
 
             return t;
         }
+
+        internal static Vector3 ArmDir(Animator animator, bool left)
+        {
+            Transform hand = animator.GetBoneTransform(left ? HumanBodyBones.LeftHand : HumanBodyBones.RightHand);
+            Transform forearm = animator.GetBoneTransform(left ? HumanBodyBones.LeftLowerArm : HumanBodyBones.RightLowerArm);
+            return (hand.position - forearm.position).normalized;
+        }
+
+        // shortest rotation from the template's forearm direction to this model's; a T-pose model gets none,
+        // so hands that already held the saber right stay exactly as they were
+        internal static Quaternion HandTurn(Animator animator, bool left) =>
+            Quaternion.FromToRotation(left ? _template.leftArmDir : _template.rightArmDir, ArmDir(animator, left));
 
         internal static float HandLength(Animator animator, bool left)
         {
@@ -280,8 +295,11 @@ namespace VRM2BS
             if (lookAtOffset.sqrMagnitude < 1e-6f) eye = head.position + _template.headFromHeadBone * scale;
 
             AddTracker(root, "Head", eye, _template.headRotation);
-            AddTracker(root, "LeftHand", leftHand.position + _template.leftHandFromBone * handScale, _template.leftHandRotation);
-            AddTracker(root, "RightHand", rightHand.position + _template.rightHandFromBone * handScale, _template.rightHandRotation);
+            // the template is in a T-pose; many models rest in an A-pose (arms down and forward), so turn the
+            // template's hand tracker with the model's real forearm, or the saber sits crooked in the hand
+            Quaternion lTurn = HandTurn(animator, true), rTurn = HandTurn(animator, false);
+            AddTracker(root, "LeftHand", leftHand.position + lTurn * _template.leftHandFromBone * handScale, lTurn * _template.leftHandRotation);
+            AddTracker(root, "RightHand", rightHand.position + rTurn * _template.rightHandFromBone * handScale, rTurn * _template.rightHandRotation);
             AddTracker(root, "Pelvis", hips.position + _template.pelvisFromHips * scale, _template.pelvisRotation);
 
             if (leftFoot && rightFoot)
