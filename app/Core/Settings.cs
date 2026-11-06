@@ -10,6 +10,7 @@ public static class AppPaths
         ? custom
         : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SaberBridge");
     public static string UnityProject => Path.Combine(Data, "unity");
+    public static string QuestProject => Path.Combine(Data, "unity-quest");
     public static string Output => Path.Combine(Data, "output");
     public static string Temp => Path.Combine(Data, "temp");
     public static string Logs => Path.Combine(Data, "logs");

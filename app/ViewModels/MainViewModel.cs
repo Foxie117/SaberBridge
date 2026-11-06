@@ -37,7 +37,11 @@ public partial class MainViewModel : ObservableObject, IConversionListener
     private void SelectTab(string index)
     {
         Tab = int.Parse(index);
-        if (IsSabersTab) Sabers.RefreshAllCommand.Execute(null);
+        if (IsSabersTab)
+        {
+            Sabers.RefreshAllCommand.Execute(null);
+            Sabers.RefreshUnity();
+        }
     }
     public ObservableCollection<QueueItem> Queue { get; } = new();
     public ObservableCollection<GameInstall> Games { get; } = new();

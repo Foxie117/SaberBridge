@@ -36,6 +36,28 @@ public static class UnityLocator
                ?? editors.Where(e => e.Contains("2021.3.")).OrderByDescending(e => e).FirstOrDefault();
     }
 
+    public const string QuestVersion = "2019.3.15f1";
+
+    /// <summary>Unity for Quest sabers: Qosmetics bundles are built with 2019.3, and it needs the Android module.</summary>
+    public static string? FindQuest()
+    {
+        List<string> editors = new();
+        foreach (string root in HubRoots())
+        {
+            if (!Directory.Exists(root)) continue;
+            foreach (string dir in Directory.GetDirectories(root))
+            {
+                string exe = Path.Combine(dir, "Editor", Exe);
+                if (File.Exists(exe)) editors.Add(exe);
+            }
+        }
+
+        return editors.FirstOrDefault(e => e.Contains(QuestVersion)) ?? editors.Where(e => e.Contains("2019.3.")).OrderByDescending(e => e).FirstOrDefault();
+    }
+
+    public static bool HasAndroid(string exe) =>
+        Directory.Exists(Path.Combine(Path.GetDirectoryName(exe)!, "Data", "PlaybackEngines", "AndroidPlayer"));
+
     public static string? VersionOf(string exe) => Regex.Match(exe, @"20\d\d\.\d+\.\d+[abfp]\d+").Value is { Length: > 0 } v ? v : null;
 
     private static IEnumerable<string> HubRoots()

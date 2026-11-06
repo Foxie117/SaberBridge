@@ -43,4 +43,21 @@
       <EmbeddedResource Include="$(UnityZip)" LogicalName="unity.zip" />
     </ItemGroup>
   </Target>
+
+  <!-- The Quest saber project (Unity 2019.3) ships the same way as unity-quest.zip. -->
+  <Target Name="PackQuestProject" BeforeTargets="BeforeBuild">
+    <PropertyGroup>
+      <QuestStage>$(IntermediateOutputPath)unity-quest\</QuestStage>
+      <QuestZip>$(IntermediateOutputPath)unity-quest.zip</QuestZip>
+    </PropertyGroup>
+    <ItemGroup>
+      <QuestFiles Include="..\unity-quest\**\*" Exclude="..\unity-quest\Library\**;..\unity-quest\Temp\**;..\unity-quest\Logs\**;..\unity-quest\UserSettings\**;..\unity-quest\obj\**;..\unity-quest\Assets\SaberBridge_Work\**" />
+    </ItemGroup>
+    <RemoveDir Directories="$(QuestStage)" />
+    <Copy SourceFiles="@(QuestFiles)" DestinationFiles="@(QuestFiles->'$(QuestStage)%(RecursiveDir)%(Filename)%(Extension)')" />
+    <ZipDirectory SourceDirectory="$(QuestStage)" DestinationFile="$(QuestZip)" Overwrite="true" />
+    <ItemGroup>
+      <EmbeddedResource Include="$(QuestZip)" LogicalName="unity-quest.zip" />
+    </ItemGroup>
+  </Target>
 </Project>

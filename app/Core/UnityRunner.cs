@@ -18,8 +18,37 @@ public static class ProjectSetup
     public static void Ensure(GameInstall game)
     {
         string proj = AppPaths.UnityProject;
-        using Stream zip = Assembly.GetExecutingAssembly().GetManifestResourceStream("unity.zip")
-                           ?? throw new InvalidOperationException("unity.zip is missing from the app");
+        Extract("unity.zip", proj);
+
+        // FinalIK and DynamicBone are paid assets: they are not shipped, the game's own copies are used
+        string libs = Path.Combine(proj, "Assets", "Libraries");
+        foreach (string dll in new[] { "FinalIK.dll", "DynamicBone.dll" })
+        {
+            string src = new[] { "Libs", "Plugins", Path.Combine("IPA", "Pending", "Libs") }
+                .Select(d => Path.Combine(game.Path, d, dll)).FirstOrDefault(File.Exists)
+                ?? throw new FileNotFoundException($"{dll} was not found in {game.Path}. Install Custom Avatars in this game copy first (BSManager → Mods).");
+            string dst = Path.Combine(libs, dll);
+            if (!File.Exists(dst) || new FileInfo(dst).Length != new FileInfo(src).Length) File.Copy(src, dst, true);
+        }
+
+        string import = Path.Combine(proj, "Assets", "VRC_Import");
+        if (Directory.Exists(import)) Directory.Delete(import, true);
+        Directory.CreateDirectory(import);
+    }
+
+    /// <summary>The Unity 2019.3 project that turns PC sabers into Quest .whacker files.</summary>
+    public static void EnsureQuest() => Extract("unity-quest.zip", AppPaths.QuestProject);
+
+    private static string QuestImportedMarker => Path.Combine(AppPaths.QuestProject, ".sb-imported");
+
+    public static bool IsQuestImported => File.Exists(QuestImportedMarker);
+
+    public static void MarkQuestImported() => File.WriteAllText(QuestImportedMarker, DateTime.Now.ToString("O"));
+
+    private static void Extract(string resource, string proj)
+    {
+        using Stream zip = Assembly.GetExecutingAssembly().GetManifestResourceStream(resource)
+                           ?? throw new InvalidOperationException($"{resource} is missing from the app");
         string hash = Convert.ToHexString(SHA1.HashData(zip));
         zip.Position = 0;
 
@@ -47,21 +76,6 @@ public static class ProjectSetup
 
             File.WriteAllText(stamp, hash);
         }
-
-        // FinalIK and DynamicBone are paid assets: they are not shipped, the game's own copies are used
-        string libs = Path.Combine(proj, "Assets", "Libraries");
-        foreach (string dll in new[] { "FinalIK.dll", "DynamicBone.dll" })
-        {
-            string src = new[] { "Libs", "Plugins", Path.Combine("IPA", "Pending", "Libs") }
-                .Select(d => Path.Combine(game.Path, d, dll)).FirstOrDefault(File.Exists)
-                ?? throw new FileNotFoundException($"{dll} was not found in {game.Path}. Install Custom Avatars in this game copy first (BSManager → Mods).");
-            string dst = Path.Combine(libs, dll);
-            if (!File.Exists(dst) || new FileInfo(dst).Length != new FileInfo(src).Length) File.Copy(src, dst, true);
-        }
-
-        string import = Path.Combine(proj, "Assets", "VRC_Import");
-        if (Directory.Exists(import)) Directory.Delete(import, true);
-        Directory.CreateDirectory(import);
     }
 }
 
@@ -88,12 +102,12 @@ public static class UnityRunner
     // one Unity at a time: two editors cannot open the same project
     private static readonly SemaphoreSlim Lock = new(1, 1);
 
-    public static async Task<UnityResult> RunAsync(string unityExe, string method, IEnumerable<string> extraArgs, Action<string> onLine, Action<string> onRaw, CancellationToken ct)
+    public static async Task<UnityResult> RunAsync(string unityExe, string method, IEnumerable<string> extraArgs, Action<string> onLine, Action<string> onRaw, CancellationToken ct, string? projectPath = null)
     {
         await Lock.WaitAsync(ct);
         try
         {
-            return await RunLockedAsync(unityExe, method, extraArgs, onLine, onRaw, ct);
+            return await RunLockedAsync(unityExe, method, extraArgs, onLine, onRaw, ct, projectPath ?? AppPaths.UnityProject);
         }
         finally
         {
@@ -101,13 +115,13 @@ public static class UnityRunner
         }
     }
 
-    private static async Task<UnityResult> RunLockedAsync(string unityExe, string method, IEnumerable<string> extraArgs, Action<string> onLine, Action<string> onRaw, CancellationToken ct)
+    private static async Task<UnityResult> RunLockedAsync(string unityExe, string method, IEnumerable<string> extraArgs, Action<string> onLine, Action<string> onRaw, CancellationToken ct, string projectPath)
     {
         Directory.CreateDirectory(AppPaths.Logs);
         string log = Path.Combine(AppPaths.Logs, $"unity-{DateTime.Now:yyyyMMdd-HHmmss-fff}.log");
 
         ProcessStartInfo psi = new(unityExe) { UseShellExecute = false, CreateNoWindow = true };
-        foreach (string a in new[] { "-batchmode", "-quit", "-projectPath", AppPaths.UnityProject, "-logFile", log, "-executeMethod", method })
+        foreach (string a in new[] { "-batchmode", "-quit", "-projectPath", projectPath, "-logFile", log, "-executeMethod", method })
             psi.ArgumentList.Add(a);
         foreach (string a in extraArgs) psi.ArgumentList.Add(a);
 
@@ -138,7 +152,9 @@ public static class UnityRunner
                 }
 
                 int i = line.IndexOf("[VRM2BS] ", StringComparison.Ordinal);
+                int q = line.IndexOf("[SB] ", StringComparison.Ordinal);
                 if (i >= 0) onLine(line[(i + 9)..]);
+                else if (q >= 0) onLine(line[(q + 5)..]);
             }
         }
 

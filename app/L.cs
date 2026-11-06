@@ -87,6 +87,11 @@ public static class L
     public static string SaberSourceMissing(string path) => T($"Оригинал пропал: {path}", $"Original is gone: {path}");
     public static string SaberSummary(int all, int done, int missing) => T($"Всего {all} · готово {done}" + (missing > 0 ? $" · пропало {missing}" : ""), $"{all} total · {done} done" + (missing > 0 ? $" · {missing} missing" : ""));
     public static string SaberEngineNote => T("Конвертация для Quest в разработке: нужна Unity 2019.3.15f1 с модулем Android. Оригиналы .saber не изменяются и не перемещаются.", "Quest conversion is in progress: it needs Unity 2019.3.15f1 with the Android module. Original .saber files are never changed or moved.");
+    public static string SaberNeedsUnity => T("Для конвертации нужна Unity 2019.3.15f1 с модулем Android Build Support (в ней собраны сейберы Qosmetics). Оригиналы .saber не изменяются.", "Converting needs Unity 2019.3.15f1 with the Android Build Support module (Qosmetics sabers are built with it). Original .saber files are never changed.");
+    public static string SaberReady => T("Готово к конвертации. Оригиналы .saber не изменяются и не перемещаются.", "Ready to convert. Original .saber files are never changed or moved.");
+    public static string SaberFirstRun => T("Первый запуск: Unity 2019 готовит проект, это несколько минут.", "First run: Unity 2019 is preparing its project, this takes a few minutes.");
+    public static string SaberConverting(string what) => T($"Конвертирую {what}", $"Converting {what}");
+    public static string SaberFinished(int ok, int failed) => T($"Готово: {ok}" + (failed > 0 ? $", ошибок: {failed}" : "") + ". Файлы .whacker лежат в папке для Quest.", $"Done: {ok}" + (failed > 0 ? $", {failed} failed" : "") + ". The .whacker files are in the Quest folder.");
     public static string ShowOriginal => T("Где оригинал", "Show original");
     public static string Forget => T("Убрать из списка", "Remove from list");
     public static string Refresh => T("Обновить", "Refresh");

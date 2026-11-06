@@ -24,6 +24,9 @@ public partial class SaberCard : ObservableObject
     [ObservableProperty] private string _detail = "";
     [ObservableProperty] private bool _sourceMissing;
 
+    // the last conversion error stays visible until the saber converts fine
+    public string? Error { get; set; }
+
     public void Refresh()
     {
         SourceMissing = !Entry.SourceExists;
@@ -33,7 +36,8 @@ public partial class SaberCard : ObservableObject
             SaberState.OutputMissing => (L.SaberOutputMissing, Brush.Parse("#FFB547")),
             _ => (L.SaberNotConverted, Brush.Parse("#8A90A8")),
         };
-        Detail = SourceMissing ? L.SaberSourceMissing(Entry.SourcePath) : Entry.SourcePath;
+        if (Entry.State == SaberState.Converted) Error = null;
+        Detail = SourceMissing ? L.SaberSourceMissing(Entry.SourcePath) : Error ?? Entry.SourcePath;
     }
 }
 
@@ -50,6 +54,7 @@ public partial class SabersViewModel : ObservableObject, IDisposable
         foreach (SaberEntry e in _library.Entries.OrderByDescending(e => e.AddedAt)) Cards.Add(new SaberCard(e));
         WatchOutput();
         UpdateCounters();
+        RefreshUnity();
     }
 
     public ObservableCollection<SaberCard> Cards { get; } = new();
@@ -59,7 +64,18 @@ public partial class SabersViewModel : ObservableObject, IDisposable
     public string Header => Cards.Count == 0 ? L.Sabers : $"{L.Sabers} · {Cards.Count}";
 
     [ObservableProperty] private string _summary = "";
-    [ObservableProperty] private string _status = L.SaberEngineNote;
+    [ObservableProperty] private string _status = "";
+    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(ConvertCommand))] private bool _isBusy;
+    [ObservableProperty] private string? _questUnity;
+
+    /// <summary>Looks for Unity 2019.3 with the Android module; without it the tab explains what to install.</summary>
+    public void RefreshUnity()
+    {
+        string? exe = UnityLocator.FindQuest();
+        QuestUnity = exe != null && UnityLocator.HasAndroid(exe) ? exe : null;
+        if (!IsBusy) Status = QuestUnity == null ? L.SaberNeedsUnity : L.SaberReady;
+        ConvertCommand.NotifyCanExecuteChanged();
+    }
 
     public void AddFiles(IEnumerable<InputJob> jobs)
     {
@@ -81,6 +97,7 @@ public partial class SabersViewModel : ObservableObject, IDisposable
         }
 
         UpdateCounters();
+        ConvertCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand]
@@ -118,11 +135,59 @@ public partial class SabersViewModel : ObservableObject, IDisposable
         UpdateCounters();
     }
 
-    private bool CanConvert() => false;
+    private List<SaberCard> Todo() => Cards.Where(c => c.Entry.SourceExists && c.Entry.State != SaberState.Converted).ToList();
 
-    // the Quest build engine (Unity 2019.3 + Android) is the next step; the button is wired already
+    private bool CanConvert() => !IsBusy && QuestUnity != null && Todo().Count > 0;
+
     [RelayCommand(CanExecute = nameof(CanConvert))]
-    private Task Convert() => Task.CompletedTask;
+    private async Task Convert()
+    {
+        List<SaberCard> todo = Todo();
+        if (QuestUnity == null || todo.Count == 0) return;
+        IsBusy = true;
+        try
+        {
+            Status = ProjectSetup.IsQuestImported ? L.Phase("unity-start") : L.SaberFirstRun;
+            await Task.Run(ProjectSetup.EnsureQuest);
+            Directory.CreateDirectory(AppPaths.Temp);
+            string jobs = Path.Combine(AppPaths.Temp, $"sabers-{Guid.NewGuid():N}.txt");
+            await File.WriteAllLinesAsync(jobs, todo.Select(c => $"{c.Entry.SourcePath}|{OutputDir}"));
+
+            int ok = 0, failed = 0;
+            UnityResult r = await UnityRunner.RunAsync(QuestUnity, "SaberBridge.SaberToWhacker.Run", new[] { "-jobsFile", jobs }, line => Dispatcher.UIThread.Post(() =>
+            {
+                // "BEGIN 2/3 name.saber", "OK   name.saber -> C:\...\name.whacker", "FAIL name.saber: reason"
+                if (line.StartsWith("BEGIN ")) Status = L.SaberConverting(line[6..]);
+                SaberCard? card = todo.FirstOrDefault(c => line.Contains(Path.GetFileName(c.Entry.SourcePath)));
+                if (card == null) return;
+                if (line.StartsWith("OK ") && line.Split(" -> ") is [_, var path])
+                {
+                    card.Entry.OutputPath = path.Trim();
+                    card.Entry.ConvertedAt = DateTime.Now;
+                    ok++;
+                }
+                else if (line.StartsWith("FAIL "))
+                {
+                    card.Error = line[5..];
+                    failed++;
+                }
+            }), _ => { }, CancellationToken.None, AppPaths.QuestProject);
+
+            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+            ProjectSetup.MarkQuestImported();
+            _library.Save();
+            RefreshAll();
+            Status = r.Problem ?? L.SaberFinished(ok, failed);
+        }
+        catch (Exception ex)
+        {
+            Status = ex.Message;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
 
     private void UpdateCounters()
     {
