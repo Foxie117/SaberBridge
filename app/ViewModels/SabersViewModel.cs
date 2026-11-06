@@ -68,10 +68,10 @@ public partial class SabersViewModel : ObservableObject, IDisposable
     [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(ConvertCommand))] private bool _isBusy;
     [ObservableProperty] private string? _questUnity;
 
-    /// <summary>Looks for Unity 2019.3 with the Android module; without it the tab explains what to install.</summary>
+    /// <summary>Looks for Unity 2021.3 with the Android module; without it the tab explains what to install.</summary>
     public void RefreshUnity()
     {
-        string? exe = UnityLocator.FindQuest();
+        string? exe = UnityLocator.FindQuest(_settings.UnityPath);
         QuestUnity = exe != null && UnityLocator.HasAndroid(exe) ? exe : null;
         if (!IsBusy) Status = QuestUnity == null ? L.SaberNeedsUnity : L.SaberReady;
         ConvertCommand.NotifyCanExecuteChanged();

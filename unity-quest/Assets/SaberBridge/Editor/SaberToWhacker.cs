@@ -52,6 +52,8 @@ namespace SaberBridge
 
         private static string Convert(string saberPath, string outDir)
         {
+            // a new scene unloads unused assets, which would also wipe the script data of an already loaded saber
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             AssetBundle bundle = AssetBundle.LoadFromFile(saberPath);
             if (bundle == null) throw new Exception("not a Unity asset bundle");
 
@@ -60,7 +62,6 @@ namespace SaberBridge
                 GameObject prefab = bundle.LoadAllAssets<GameObject>().FirstOrDefault(g => g.transform.parent == null && g.transform.Find("LeftSaber") && g.transform.Find("RightSaber"))
                                     ?? throw new Exception("no LeftSaber / RightSaber in this saber");
 
-                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 GameObject root = UnityEngine.Object.Instantiate(prefab);
 
                 string saberName = Path.GetFileNameWithoutExtension(saberPath), author = "", description = "";
@@ -81,14 +82,18 @@ namespace SaberBridge
                 int trails = ConvertTrails(root, copier);
 
                 RemoveScripts(root);
-                root.name = saberName;
+
+                // Qosmetics loads the object "_Whacker" from assets/qosmetics/_whacker.prefab, as its exporter writes it
+                root.name = "_Whacker";
 
                 Log("STAGE bundle");
                 string fileBase = saberName.ToLowerInvariant();
-                string prefabPath = $"{work}/{id}.prefab";
+                if (!AssetDatabase.IsValidFolder("Assets/Qosmetics")) AssetDatabase.CreateFolder("Assets", "Qosmetics");
+                string prefabPath = "Assets/Qosmetics/_Whacker.prefab";
                 PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
 
-                Texture2D thumb = cover != null ? Readable(cover.texture, cover.textureRect) : Thumbnail(root);
+                // encoded now: building bundles unloads in-memory textures
+                byte[] thumbPng = (cover != null ? Readable(cover.texture, cover.textureRect) : Thumbnail(root)).EncodeToPNG();
                 UnityEngine.Object.DestroyImmediate(root);
 
                 string temp = Path.Combine(Path.GetTempPath(), "SaberBridge", id);
@@ -96,7 +101,7 @@ namespace SaberBridge
                 Directory.CreateDirectory(temp);
                 Build(prefabPath, temp, fileBase + "_pc", BuildTarget.StandaloneWindows64);
                 Build(prefabPath, temp, fileBase + "_android", BuildTarget.Android);
-                File.WriteAllBytes(Path.Combine(temp, "thumbnail.png"), thumb.EncodeToPNG());
+                File.WriteAllBytes(Path.Combine(temp, "thumbnail.png"), thumbPng);
                 File.WriteAllText(Path.Combine(temp, "package.json"), PackageJson(fileBase, saberName, author, description, trails > 0));
 
                 Directory.CreateDirectory(outDir);
@@ -109,13 +114,15 @@ namespace SaberBridge
                 }
 
                 Directory.Delete(temp, true);
+                AssetDatabase.DeleteAsset(prefabPath);
                 AssetDatabase.DeleteAsset(work);
                 Log($"INFO {trails} trails, {copier.Meshes} meshes, {copier.Materials} materials ({copier.ReplacedShaders} shaders swapped for Quest)");
                 return whacker;
             }
             finally
             {
-                bundle.Unload(true);
+                // building bundles unloads every loaded bundle, the .saber included
+                if (bundle) bundle.Unload(true);
             }
         }
 
@@ -151,18 +158,28 @@ namespace SaberBridge
                 Color multiplier = so.FindProperty("MultiplierColor")?.colorValue ?? Color.white;
                 int length = so.FindProperty("Length")?.intValue ?? 20;
 
-                // the trail object: its JSON, plus a MeshRenderer that carries the trail material (as Qosmetics' Trail.OnExport does)
-                GameObject trailGo = new GameObject($"Trail{id}");
+                // same layout as working .whacker files: "Trail" (JSON + MeshRenderer with the trail material)
+                // holding "Trail Top" and "Trail Bottom" at the CustomTrail's end and start points
+                GameObject trailGo = new GameObject("Trail");
                 trailGo.transform.SetParent(mb.transform, false);
                 SetText(trailGo, "{\n  \"trailId\": " + id + ",\n  \"colorType\": " + colorType + ",\n  \"trailColor\": " + ColorJson(trailColor) +
                                  ",\n  \"multiplierColor\": " + ColorJson(multiplier) + ",\n  \"length\": " + length + ",\n  \"whiteStep\": 0.0\n}");
                 trailGo.AddComponent<MeshRenderer>().sharedMaterial = copier.CopyMaterial(mat, true);
-                SetText(top.gameObject, "{\n  \"isTop\": true,\n  \"trailId\": " + id + "\n}");
-                SetText(bottom.gameObject, "{\n  \"isTop\": false,\n  \"trailId\": " + id + "\n}");
+                Marker(trailGo.transform, "Trail Top", top, "{\n  \"isTop\": true,\n  \"trailId\": " + id + "\n}");
+                Marker(trailGo.transform, "Trail Bottom", bottom, "{\n  \"isTop\": false,\n  \"trailId\": " + id + "\n}");
                 id++;
             }
 
             return id;
+        }
+
+        private static void Marker(Transform parent, string name, Transform at, string json)
+        {
+            GameObject go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            SetText(go, json);
+            go.transform.position = at.position;
+            go.transform.rotation = at.rotation;
         }
 
         private static string ColorJson(Color c) =>

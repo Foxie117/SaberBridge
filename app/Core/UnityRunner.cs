@@ -36,7 +36,7 @@ public static class ProjectSetup
         Directory.CreateDirectory(import);
     }
 
-    /// <summary>The Unity 2019.3 project that turns PC sabers into Quest .whacker files.</summary>
+    /// <summary>The Unity project (opened with 2021.3, like Quest Beat Saber 1.29+) that turns PC sabers into Quest .whacker files.</summary>
     public static void EnsureQuest() => Extract("unity-quest.zip", AppPaths.QuestProject);
 
     private static string QuestImportedMarker => Path.Combine(AppPaths.QuestProject, ".sb-imported");

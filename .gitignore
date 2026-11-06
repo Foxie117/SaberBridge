@@ -26,3 +26,19 @@ unity/Assets/Libraries/DynamicBone.dll
 *.vrm
 *.pmx
 *.unitypackage
+
+# Quest saber project (opened locally for development)
+unity-quest/Library/
+unity-quest/Temp/
+unity-quest/Logs/
+unity-quest/UserSettings/
+unity-quest/obj/
+unity-quest/*.csproj
+unity-quest/*.sln
+unity-quest/Assets/SaberBridge_Work/
+unity-quest/Assets/SaberBridge_Work.meta
+unity-quest/Assets/Qosmetics/
+unity-quest/Assets/Qosmetics.meta
+unity-quest/.vscode/
+unity-quest/Assets/Resources.meta
+unity-quest/Assets/Resources/

@@ -16,6 +16,16 @@ Converts VRM, VRChat and MMD models into `.avatar` files for the Beat Saber **Cu
 
 If something is missing (Unity, Unity Hub, BSManager, the game or the Custom Avatars mod), the **system check** opens on its own. It offers a download or install button for each missing item.
 
+## Quest sabers (.saber → .whacker)
+
+The **Quest · sabers** tab turns PC CustomSabers files (`.saber`) into Qosmetics files (`.whacker`) for Beat Saber 1.29+ on a standalone Quest. Drop `.saber` files (or a `.zip` with them), press **Convert**, then install the files from the Quest folder with Mods Before Friday.
+
+- Same layout as Qosmetics' own exporter: `_Whacker` with `LeftSaber` / `RightSaber`, trails with their colours and length, cover image, name and author.
+- Meshes, textures and colours carry over; meshes saved without Read/Write are recovered through a one-off GPU capture.
+- PC-only shaders cannot run on the Quest, so they are swapped for simple Quest shaders (texture, colour, glow, saber colours). Procedural PC effects (fire, distortion) become a soft glow.
+- Originals are never changed. The tab remembers which `.whacker` came from which `.saber` and notices when a converted file is deleted.
+- Needs the **Android Build Support** module for Unity 2021.3.16f1 (Unity Hub → Installs → ⚙ → Add modules).
+
 ## Screenshots
 
 | Library with fresh conversions | Converting |

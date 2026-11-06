@@ -1,4 +1,4 @@
-// Quest-safe saber trail: texture x colour, alpha blended, no depth write.
+// Quest-safe saber trail and effects: texture x colour, additive glow (like Beat Saber trails), no depth write.
 Shader "SaberBridge/QuestTrail"
 {
     Properties
@@ -12,7 +12,7 @@ Shader "SaberBridge/QuestTrail"
     {
         Tags { "RenderType"="Transparent" "Queue"="Transparent" }
         Cull Off ZWrite Off
-        Blend SrcAlpha OneMinusSrcAlpha
+        Blend One One
         Pass
         {
             CGPROGRAM
@@ -40,7 +40,8 @@ Shader "SaberBridge/QuestTrail"
 
             fixed4 frag (v2f i) : SV_Target
             {
-                return tex2D(_MainTex, i.uv) * _Color * i.color;
+                fixed4 c = tex2D(_MainTex, i.uv) * _Color * i.color;
+                return fixed4(c.rgb * c.a, c.a);
             }
             ENDCG
         }
