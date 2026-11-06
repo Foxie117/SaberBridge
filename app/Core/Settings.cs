@@ -36,6 +36,7 @@ public sealed class Settings
     public string? GamePath { get; set; }
     public bool AutoInstall { get; set; } = true;
     public string? Language { get; set; }
+    public string? QuestOutputDir { get; set; }
 
     public static Settings Load()
     {

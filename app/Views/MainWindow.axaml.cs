@@ -84,6 +84,24 @@ public partial class MainWindow : Window
         if (files.FirstOrDefault()?.TryGetLocalPath() is { } path) Vm.SetUnity(path);
     }
 
+    private async void BrowseSabers_Click(object? sender, RoutedEventArgs e)
+    {
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            AllowMultiple = true,
+            Title = L.Browse,
+            FileTypeFilter = new[] { new FilePickerFileType("Sabers") { Patterns = new[] { "*.saber", "*.zip" } }, FilePickerFileTypes.All },
+        });
+        List<string> paths = files.Select(f => f.TryGetLocalPath()).OfType<string>().ToList();
+        if (paths.Count > 0) await Vm.AddPathsAsync(paths);
+    }
+
+    private async void PickQuestFolder_Click(object? sender, RoutedEventArgs e)
+    {
+        var dirs = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions { Title = L.QuestFolder });
+        if (dirs.FirstOrDefault()?.TryGetLocalPath() is { } path) Vm.Sabers.SetOutputDir(path);
+    }
+
     private async void PickGame_Click(object? sender, RoutedEventArgs e) => await Vm.PickGameAsync();
 
     private async Task<string?> PickFolderAsync()

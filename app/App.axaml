@@ -84,6 +84,20 @@
       <Setter Property="BorderBrush" Value="{StaticResource Saber}" />
       <Setter Property="BorderThickness" Value="2" />
     </Style>
+    <Style Selector="Button.tab">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="CornerRadius" Value="18" />
+      <Setter Property="Padding" Value="18,7" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{StaticResource Muted}" />
+    </Style>
+    <Style Selector="Button.tab.active">
+      <Setter Property="Background" Value="{StaticResource Saber}" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.tab.active:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Saber}" />
+    </Style>
     <Style Selector="Border.card">
       <Setter Property="Background" Value="{StaticResource Panel}" />
       <Setter Property="CornerRadius" Value="14" />

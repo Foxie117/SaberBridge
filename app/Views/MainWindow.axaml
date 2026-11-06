@@ -14,7 +14,7 @@
   <Grid RowDefinitions="Auto,3,*,Auto">
 
     <!-- header -->
-    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="24,18,24,14">
+    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto" Margin="24,18,24,14">
       <StackPanel Orientation="Horizontal" Spacing="14">
         <Image Source="/Assets/logo.png" Width="44" Height="44" />
         <StackPanel VerticalAlignment="Center">
@@ -22,6 +22,15 @@
           <TextBlock Classes="muted" Text="{x:Static app:L.Subtitle}" />
         </StackPanel>
       </StackPanel>
+
+      <!-- tabs -->
+      <Border Grid.Row="1" Grid.ColumnSpan="3" Margin="0,16,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" Background="{StaticResource Panel}"
+              BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="22" Padding="4">
+        <StackPanel Orientation="Horizontal" Spacing="4">
+          <Button Classes="tab" Classes.active="{Binding IsAvatarsTab}" Content="{x:Static app:L.TabPc}" Command="{Binding SelectTabCommand}" CommandParameter="0" />
+          <Button Classes="tab" Classes.active="{Binding IsSabersTab}" Content="{x:Static app:L.TabQuest}" Command="{Binding SelectTabCommand}" CommandParameter="1" />
+        </StackPanel>
+      </Border>
 
       <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
         <Button Classes="chip" Command="{Binding ToggleSystemCheckCommand}" ToolTip.Tip="{x:Static app:L.SystemCheck}">
@@ -59,7 +68,7 @@
     <Border Grid.Row="1" Background="{StaticResource Saber}" Opacity="0.85" />
 
     <!-- body -->
-    <Grid Grid.Row="2" ColumnDefinitions="400,*" Margin="24,20,24,12">
+    <Grid Grid.Row="2" ColumnDefinitions="400,*" Margin="24,20,24,12" IsVisible="{Binding IsAvatarsTab}">
 
       <!-- left: drop zone + queue -->
       <Grid RowDefinitions="Auto,Auto,*" Margin="0,0,20,0">
@@ -186,8 +195,80 @@
       </Border>
     </Grid>
 
+    <!-- Quest sabers tab -->
+    <Grid Grid.Row="2" Grid.RowSpan="2" RowDefinitions="Auto,*,Auto" Margin="24,20,24,16" IsVisible="{Binding IsSabersTab}">
+      <Grid ColumnDefinitions="400,*">
+        <Panel Height="150" Background="Transparent" Margin="0,0,20,0">
+          <Border Classes="card" />
+          <Rectangle Margin="10" RadiusX="10" RadiusY="10" Stroke="#3A3F58" StrokeThickness="2" StrokeDashArray="5,4" />
+          <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
+            <TextBlock Text="{x:Static app:L.SaberDropTitle}" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" />
+            <TextBlock Classes="muted" Text="{x:Static app:L.SaberDropHint}" HorizontalAlignment="Center" />
+            <Button Classes="ghost" Content="{x:Static app:L.Browse}" HorizontalAlignment="Center" Click="BrowseSabers_Click" />
+          </StackPanel>
+        </Panel>
+        <Border Grid.Column="1" Classes="card" Padding="18,14">
+          <StackPanel Spacing="8">
+            <TextBlock Classes="h2" Text="{x:Static app:L.QuestFolder}" />
+            <TextBlock Classes="muted" Text="{x:Static app:L.SabersEmpty}" TextWrapping="Wrap" />
+            <Grid ColumnDefinitions="*,Auto,Auto">
+              <TextBox Text="{Binding Sabers.OutputDir, Mode=OneWay}" IsReadOnly="True" FontSize="12" />
+              <Button Grid.Column="1" Classes="ghost" Margin="8,0,0,0" Content="{x:Static app:L.Change}" Click="PickQuestFolder_Click" />
+              <Button Grid.Column="2" Classes="ghost" Margin="8,0,0,0" Content="{x:Static app:L.OpenFolder}" Command="{Binding Sabers.OpenOutputCommand}" />
+            </Grid>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <Border Grid.Row="1" Classes="card" Padding="20" Margin="0,20,0,0">
+        <Grid RowDefinitions="Auto,*">
+          <Grid ColumnDefinitions="Auto,*,Auto">
+            <TextBlock Classes="h2" Text="{Binding Sabers.Header}" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Classes="muted" Text="{Binding Sabers.Summary}" Margin="16,0" VerticalAlignment="Center" />
+            <Button Grid.Column="2" Classes="ghost" Content="{x:Static app:L.Refresh}" Command="{Binding Sabers.RefreshAllCommand}" />
+          </Grid>
+          <TextBlock Grid.Row="1" Classes="muted" Text="{x:Static app:L.SabersEmpty}" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="520"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding Sabers.IsEmpty}" />
+          <ScrollViewer Grid.Row="1" Margin="0,14,0,0" IsVisible="{Binding !Sabers.IsEmpty}">
+            <ItemsControl ItemsSource="{Binding Sabers.Cards}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><StackPanel Spacing="6" /></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:SaberCard">
+                  <Border Background="{StaticResource PanelHi}" CornerRadius="10" Padding="14,10">
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+                      <Border Background="#B068FF" CornerRadius="6" Width="54" Height="24" VerticalAlignment="Center">
+                        <TextBlock Text="SABER" FontSize="10" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                      </Border>
+                      <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Classes="muted" Text="{Binding Detail}" FontSize="11" TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                      <TextBlock Grid.Column="2" Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" FontSize="12" VerticalAlignment="Center" Margin="0,0,12,0" />
+                      <Button Grid.Column="3" Classes="ghost small" Content="{x:Static app:L.ShowOriginal}" IsVisible="{Binding !SourceMissing}"
+                              Command="{Binding $parent[ItemsControl].((vm:MainViewModel)DataContext).Sabers.ShowOriginalCommand}" CommandParameter="{Binding}" />
+                      <Button Grid.Column="4" Classes="icon" Margin="6,0,0,0" ToolTip.Tip="{x:Static app:L.Forget}"
+                              Command="{Binding $parent[ItemsControl].((vm:MainViewModel)DataContext).Sabers.RemoveCommand}" CommandParameter="{Binding}">
+                        <PathIcon Width="10" Height="10" Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" />
+                      </Button>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Grid>
+      </Border>
+
+      <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,14,0,0">
+        <TextBlock Classes="muted" Text="{Binding Sabers.Status}" TextWrapping="Wrap" VerticalAlignment="Center" />
+        <Button Grid.Column="1" Classes="primary" Margin="20,0,0,0" Content="{x:Static app:L.Convert}" Command="{Binding Sabers.ConvertCommand}" />
+      </Grid>
+    </Grid>
+
     <!-- footer -->
-    <Border Grid.Row="3" Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0">
+    <Border Grid.Row="3" Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" IsVisible="{Binding IsAvatarsTab}">
       <StackPanel>
         <Border IsVisible="{Binding ShowLog}" Height="190" Margin="24,14,24,0" Classes="card" Background="#0B0C11">
           <TextBox Text="{Binding LogText}" IsReadOnly="True" TextWrapping="Wrap" Background="Transparent" BorderThickness="0"

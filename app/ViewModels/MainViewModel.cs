@@ -20,11 +20,25 @@ public partial class MainViewModel : ObservableObject, IConversionListener
     {
         _autoInstall = _settings.AutoInstall;
         SystemCheck = new SystemCheckViewModel(this);
+        Sabers = new SabersViewModel(_settings);
         RefreshEnvironment();
         ShowSystemCheck = SystemCheck.Blocked;
     }
 
     public SystemCheckViewModel SystemCheck { get; }
+    public SabersViewModel Sabers { get; }
+
+    // 0 = PC avatars, 1 = Quest sabers
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(IsAvatarsTab), nameof(IsSabersTab))] private int _tab;
+    public bool IsAvatarsTab => Tab == 0;
+    public bool IsSabersTab => Tab == 1;
+
+    [RelayCommand]
+    private void SelectTab(string index)
+    {
+        Tab = int.Parse(index);
+        if (IsSabersTab) Sabers.RefreshAllCommand.Execute(null);
+    }
     public ObservableCollection<QueueItem> Queue { get; } = new();
     public ObservableCollection<GameInstall> Games { get; } = new();
 
@@ -138,7 +152,16 @@ public partial class MainViewModel : ObservableObject, IConversionListener
         try
         {
             List<InputJob> jobs = await Task.Run(() => InputScanner.Scan(paths.ToList()));
-            foreach (InputJob job in jobs)
+
+            // sabers go to the Quest tab; if that is all that was dropped, show it
+            List<InputJob> sabers = jobs.Where(j => j.Kind == JobKind.Saber).ToList();
+            if (sabers.Count > 0)
+            {
+                Sabers.AddFiles(sabers);
+                if (sabers.Count == jobs.Count) Tab = 1;
+            }
+
+            foreach (InputJob job in jobs.Where(j => j.Kind != JobKind.Saber))
             {
                 if (Queue.Any(q => q.Job.File == job.File)) continue;
                 Queue.Add(new QueueItem(job));

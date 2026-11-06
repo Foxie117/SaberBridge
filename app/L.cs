@@ -10,7 +10,7 @@ public static class L
 
     private static string T(string ru, string en) => Ru ? ru : en;
 
-    public static string Subtitle => T("VRM · VRChat · MMD  →  аватары для Beat Saber", "VRM · VRChat · MMD  →  Beat Saber avatars");
+    public static string Subtitle => T("Конвертер для Beat Saber: аватары для ПК и сейберы для Quest", "Beat Saber converter: PC avatars and Quest sabers");
     public static string DropTitle => T("Перетащи модели сюда", "Drop your models here");
     public static string DropHint => T(".vrm  ·  .unitypackage  ·  .pmx  ·  .zip  ·  папки", ".vrm  ·  .unitypackage  ·  .pmx  ·  .zip  ·  folders");
     public static string Browse => T("Выбрать файлы", "Choose files");
@@ -72,6 +72,24 @@ public static class L
 
     public static string Cancelled => T("Отменено", "Cancelled");
     public static string NothingToDo => T("Добавь модели в очередь", "Add some models first");
+
+    // ---- tabs and Quest sabers
+    public static string TabPc => T("ПК · аватары", "PC · avatars");
+    public static string TabQuest => T("Quest · сейберы", "Quest · sabers");
+    public static string Sabers => T("Сейберы для Quest", "Quest sabers");
+    public static string SaberDropTitle => T("Перетащи сейберы .saber сюда", "Drop .saber files here");
+    public static string SaberDropHint => T(".saber (ПК)  →  .whacker (Quest, Qosmetics)", ".saber (PC)  →  .whacker (Quest, Qosmetics)");
+    public static string SabersEmpty => T("Добавь сейберы с ПК (.saber). Готовые .whacker будут лежать в папке ниже — оттуда их ставишь на Quest через Mods Before Friday.", "Add PC sabers (.saber). Finished .whacker files land in the folder below; install them on the Quest with Mods Before Friday.");
+    public static string QuestFolder => T("Папка для Quest", "Quest folder");
+    public static string SaberConverted => T("сконвертирован", "converted");
+    public static string SaberNotConverted => T("не сконвертирован", "not converted");
+    public static string SaberOutputMissing => T("нет сконвертированного файла", "converted file missing");
+    public static string SaberSourceMissing(string path) => T($"Оригинал пропал: {path}", $"Original is gone: {path}");
+    public static string SaberSummary(int all, int done, int missing) => T($"Всего {all} · готово {done}" + (missing > 0 ? $" · пропало {missing}" : ""), $"{all} total · {done} done" + (missing > 0 ? $" · {missing} missing" : ""));
+    public static string SaberEngineNote => T("Конвертация для Quest в разработке: нужна Unity 2019.3.15f1 с модулем Android. Оригиналы .saber не изменяются и не перемещаются.", "Quest conversion is in progress: it needs Unity 2019.3.15f1 with the Android module. Original .saber files are never changed or moved.");
+    public static string ShowOriginal => T("Где оригинал", "Show original");
+    public static string Forget => T("Убрать из списка", "Remove from list");
+    public static string Refresh => T("Обновить", "Refresh");
 
     // ---- library
     public static string Library => T("Аватары", "Avatars");

@@ -3,7 +3,7 @@ using System.IO.Compression;
 
 namespace SaberBridge.Core;
 
-public enum JobKind { Vrm, Pmx, VrcPackage, Unsupported, Skipped }
+public enum JobKind { Vrm, Pmx, VrcPackage, Unsupported, Skipped, Saber }
 
 public sealed record InputJob(JobKind Kind, string Name, string File, string Origin, string? Note = null);
 
@@ -40,6 +40,9 @@ public static class InputScanner
             case ".pmx":
                 jobs.Add(new InputJob(JobKind.Pmx, PmxName(path), path, origin));
                 break;
+            case ".saber":
+                jobs.Add(new InputJob(JobKind.Saber, name, path, origin));
+                break;
             case ".unitypackage":
                 jobs.Add(new InputJob(JobKind.VrcPackage, name, path, origin));
                 break;
@@ -48,7 +51,7 @@ public static class InputScanner
                 ExtractZip(path, dir);
                 int before = jobs.Count;
                 Visit(dir, origin, jobs, depth + 1, false);
-                if (jobs.Count == before && direct) jobs.Add(new InputJob(JobKind.Unsupported, name, path, origin, "no .vrm / .pmx / .unitypackage inside"));
+                if (jobs.Count == before && direct) jobs.Add(new InputJob(JobKind.Unsupported, name, path, origin, "no .vrm / .pmx / .unitypackage / .saber inside"));
                 break;
             default:
                 // inside archives and folders other formats are just source files next to the real model
