@@ -1,10 +1,10 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-using BSAvatarConverter.ViewModels;
-using BSAvatarConverter.Views;
+using SaberBridge.ViewModels;
+using SaberBridge.Views;
 
-namespace BSAvatarConverter;
+namespace SaberBridge;
 
 public partial class App : Application
 {

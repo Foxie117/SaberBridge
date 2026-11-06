@@ -1,6 +1,6 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="BSAvatarConverter.App"
+             x:Class="SaberBridge.App"
              RequestedThemeVariant="Dark">
   <Application.Resources>
     <SolidColorBrush x:Key="Bg">#0F1016</SolidColorBrush>

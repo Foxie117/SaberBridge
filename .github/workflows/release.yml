@@ -25,9 +25,9 @@ jobs:
       - name: Package
         run: |
           mkdir -p out
-          cp dist/win/BSAvatarConverter.exe out/BSAvatarConverter-win-x64.exe
-          chmod +x dist/linux/BSAvatarConverter
-          tar -czf out/BSAvatarConverter-linux-x64.tar.gz -C dist/linux BSAvatarConverter
+          cp dist/win/SaberBridge.exe out/SaberBridge-win-x64.exe
+          chmod +x dist/linux/SaberBridge
+          tar -czf out/SaberBridge-linux-x64.tar.gz -C dist/linux SaberBridge
 
       - uses: actions/upload-artifact@v4
         with:

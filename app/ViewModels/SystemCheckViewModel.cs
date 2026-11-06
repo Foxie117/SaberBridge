@@ -1,10 +1,10 @@
 using System.Collections.ObjectModel;
 using Avalonia.Media;
-using BSAvatarConverter.Core;
+using SaberBridge.Core;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
-namespace BSAvatarConverter.ViewModels;
+namespace SaberBridge.ViewModels;
 
 public enum CheckLevel { Ok, Info, Warn, Missing }
 
@@ -97,8 +97,8 @@ public partial class SystemCheckViewModel : ObservableObject
     [ObservableProperty] private bool _blocked;
     [ObservableProperty] private string _summary = "";
 
-    // developer switch to see the "nothing installed" state: BSAC_SIMULATE_MISSING=1
-    private static readonly bool SimulateMissing = Environment.GetEnvironmentVariable("BSAC_SIMULATE_MISSING") == "1";
+    // developer switch to see the "nothing installed" state: SABERBRIDGE_SIMULATE_MISSING=1
+    private static readonly bool SimulateMissing = Environment.GetEnvironmentVariable("SABERBRIDGE_SIMULATE_MISSING") == "1";
 
     public void Refresh()
     {

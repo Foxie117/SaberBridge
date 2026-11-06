@@ -1,9 +1,9 @@
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
-using BSAvatarConverter.Core;
+using SaberBridge.Core;
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace BSAvatarConverter.ViewModels;
+namespace SaberBridge.ViewModels;
 
 /// <summary>One avatar in the library: installed in the game, freshly converted, or both.</summary>
 public partial class AvatarCard : ObservableObject

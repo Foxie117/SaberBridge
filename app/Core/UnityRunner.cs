@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Security.Cryptography;
 
-namespace BSAvatarConverter.Core;
+namespace SaberBridge.Core;
 
 /// <summary>Keeps the converter's Unity project (shipped inside the app) unpacked and ready.</summary>
 public static class ProjectSetup

@@ -4,7 +4,7 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace BSAvatarConverter.Core;
+namespace SaberBridge.Core;
 
 /// <summary>Which Unity editor builds avatars for which Beat Saber / Custom Avatars version.</summary>
 public static class Compatibility
@@ -176,7 +176,7 @@ public static class Downloads
     private static HttpClient CreateClient()
     {
         HttpClient c = new() { Timeout = TimeSpan.FromHours(2) };
-        c.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("BSAvatarConverter", "0.2"));
+        c.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("SaberBridge", "0.2"));
         return c;
     }
 

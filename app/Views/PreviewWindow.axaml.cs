@@ -2,9 +2,9 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using BSAvatarConverter.ViewModels;
+using SaberBridge.ViewModels;
 
-namespace BSAvatarConverter.Views;
+namespace SaberBridge.Views;
 
 public partial class PreviewWindow : Window
 {

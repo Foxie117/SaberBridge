@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace BSAvatarConverter.Core;
+namespace SaberBridge.Core;
 
 public sealed record GameInstall(string Label, string Path)
 {

@@ -2,11 +2,11 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Text;
 using Avalonia.Threading;
-using BSAvatarConverter.Core;
+using SaberBridge.Core;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
-namespace BSAvatarConverter.ViewModels;
+namespace SaberBridge.ViewModels;
 
 public partial class MainViewModel : ObservableObject, IConversionListener
 {

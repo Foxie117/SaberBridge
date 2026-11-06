@@ -1,4 +1,4 @@
-# Beat Saber Avatar Converter
+# SaberBridge
 
 Converts VRM, VRChat and MMD models into `.avatar` files for the Beat Saber **Custom Avatars** mod (5.4.x, Beat Saber 1.40). Drop your models into the window and press **Convert**. The app also installs the results into the game. The interface is available in English and Russian.
 
@@ -53,11 +53,11 @@ Every avatar gets full-body IK (VRIK), finger poses, first-person head hiding, t
 
 ## Download
 
-See **Releases**: `BSAvatarConverter-win-x64.exe` (Windows) and `BSAvatarConverter-linux-x64.tar.gz` (Linux). They are single files with no installer.
+See **Releases**: `SaberBridge-win-x64.exe` (Windows) and `SaberBridge-linux-x64.tar.gz` (Linux). They are single files with no installer.
 
-Data, logs and finished avatars live in `%LOCALAPPDATA%\BSAvatarConverter` (Windows) or `~/.local/share/BSAvatarConverter` (Linux).
+Data, logs and finished avatars live in `%LOCALAPPDATA%\SaberBridge` (Windows) or `~/.local/share/SaberBridge` (Linux).
 
-You can also drop model files onto the `.exe`, or run `BSAvatarConverter model.vrm --convert`.
+You can also drop model files onto the `.exe`, or run `SaberBridge model.vrm --convert`.
 
 ## Repository layout
 
@@ -87,7 +87,7 @@ Open `unity/` in Unity 2021.3.16f1 after copying `FinalIK.dll` and `DynamicBone.
 - `VRM2BS.VrmToAvatarConverter.Validate -outDir <dir>`: loads built bundles like the mod does
 - `VRM2BS.AvatarPreview.Run -avatarList <file> -previewDir <dir>`: checks `.avatar` files and renders the preview frames
 
-App switches for development: `BSAC_DATA=<folder>` uses another data folder (clean demo screenshots); `BSAC_SIMULATE_MISSING=1` shows the system check as if nothing were installed.
+App switches for development: `SABERBRIDGE_DATA=<folder>` uses another data folder (clean demo screenshots); `SABERBRIDGE_SIMULATE_MISSING=1` shows the system check as if nothing were installed.
 
 ## Licenses
 

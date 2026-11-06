@@ -1,7 +1,7 @@
 using System.Formats.Tar;
 using System.IO.Compression;
 
-namespace BSAvatarConverter.Core;
+namespace SaberBridge.Core;
 
 public enum JobKind { Vrm, Pmx, VrcPackage, Unsupported, Skipped }
 

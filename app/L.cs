@@ -1,7 +1,7 @@
 using System.Globalization;
-using BSAvatarConverter.Core;
+using SaberBridge.Core;
 
-namespace BSAvatarConverter;
+namespace SaberBridge;
 
 /// <summary>UI strings: Russian when the system language is Russian, English otherwise.</summary>
 public static class L

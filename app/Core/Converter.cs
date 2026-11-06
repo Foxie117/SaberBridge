@@ -1,4 +1,4 @@
-namespace BSAvatarConverter.Core;
+namespace SaberBridge.Core;
 
 public enum JobState { Waiting, Working, Done, Failed, Skipped }
 

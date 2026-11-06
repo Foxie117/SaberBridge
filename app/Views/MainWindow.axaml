@@ -1,11 +1,11 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:BSAvatarConverter.ViewModels"
-        xmlns:core="using:BSAvatarConverter.Core"
-        xmlns:app="using:BSAvatarConverter"
-        x:Class="BSAvatarConverter.Views.MainWindow"
+        xmlns:vm="using:SaberBridge.ViewModels"
+        xmlns:core="using:SaberBridge.Core"
+        xmlns:app="using:SaberBridge"
+        x:Class="SaberBridge.Views.MainWindow"
         x:DataType="vm:MainViewModel"
-        Title="Beat Saber Avatar Converter"
+        Title="SaberBridge"
         Icon="/Assets/icon.ico"
         Width="1240" Height="800" MinWidth="960" MinHeight="620"
         Background="{StaticResource Bg}"
@@ -18,7 +18,7 @@
       <StackPanel Orientation="Horizontal" Spacing="14">
         <Image Source="/Assets/logo.png" Width="44" Height="44" />
         <StackPanel VerticalAlignment="Center">
-          <TextBlock Text="Avatar Converter" FontSize="22" FontWeight="Bold" />
+          <TextBlock Text="SaberBridge" FontSize="22" FontWeight="Bold" />
           <TextBlock Classes="muted" Text="{x:Static app:L.Subtitle}" />
         </StackPanel>
       </StackPanel>

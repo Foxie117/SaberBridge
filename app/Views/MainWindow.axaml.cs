@@ -4,9 +4,9 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
-using BSAvatarConverter.ViewModels;
+using SaberBridge.ViewModels;
 
-namespace BSAvatarConverter.Views;
+namespace SaberBridge.Views;
 
 public partial class MainWindow : Window
 {

@@ -2,11 +2,11 @@ using System.Collections.ObjectModel;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
-using BSAvatarConverter.Core;
+using SaberBridge.Core;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
-namespace BSAvatarConverter.ViewModels;
+namespace SaberBridge.ViewModels;
 
 public sealed record AnimOption(string Key, string Label);
 

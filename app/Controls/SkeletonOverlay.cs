@@ -2,7 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 
-namespace BSAvatarConverter.Controls;
+namespace SaberBridge.Controls;
 
 /// <summary>Draws the bones of one preview frame; coordinates are frame pixels (same size as the control).</summary>
 public sealed class SkeletonOverlay : Control

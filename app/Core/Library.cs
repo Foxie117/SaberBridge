@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 
-namespace BSAvatarConverter.Core;
+namespace SaberBridge.Core;
 
 public sealed record CheckResult(string Code, string Level, string Value);
 
