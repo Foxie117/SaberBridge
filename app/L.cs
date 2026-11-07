@@ -79,7 +79,8 @@ public static class L
     public static string Sabers => T("Сейберы для Quest", "Quest sabers");
     public static string SaberDropTitle => T("Перетащи сейберы .saber сюда", "Drop .saber files here");
     public static string SaberDropHint => T(".saber (ПК)  →  .whacker (Quest, Qosmetics)", ".saber (PC)  →  .whacker (Quest, Qosmetics)");
-    public static string SabersEmpty => T("Добавь сейберы с ПК (.saber). Готовые .whacker будут лежать в папке ниже — оттуда их ставишь на Quest через Mods Before Friday.", "Add PC sabers (.saber). Finished .whacker files land in the folder below; install them on the Quest with Mods Before Friday.");
+    public static string SabersEmpty => T("Перетащи сюда сейберы с ПК (.saber) — они появятся в этом списке.", "Drop PC sabers (.saber) here; they will show up in this list.");
+    public static string QuestFolderHint => T("Сюда кладутся готовые .whacker. Отсюда их ставишь на Quest через Mods Before Friday.", "Finished .whacker files go here. Install them on the Quest with Mods Before Friday.");
     public static string QuestFolder => T("Папка для Quest", "Quest folder");
     public static string SaberConverted => T("сконвертирован", "converted");
     public static string SaberNotConverted => T("не сконвертирован", "not converted");

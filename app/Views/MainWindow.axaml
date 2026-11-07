@@ -210,7 +210,7 @@
         <Border Grid.Column="1" Classes="card" Padding="18,14">
           <StackPanel Spacing="8">
             <TextBlock Classes="h2" Text="{x:Static app:L.QuestFolder}" />
-            <TextBlock Classes="muted" Text="{x:Static app:L.SabersEmpty}" TextWrapping="Wrap" />
+            <TextBlock Classes="muted" Text="{x:Static app:L.QuestFolderHint}" TextWrapping="Wrap" />
             <Grid ColumnDefinitions="*,Auto,Auto">
               <TextBox Text="{Binding Sabers.OutputDir, Mode=OneWay}" IsReadOnly="True" FontSize="12" />
               <Button Grid.Column="1" Classes="ghost" Margin="8,0,0,0" Content="{x:Static app:L.Change}" Click="PickQuestFolder_Click" />
@@ -238,9 +238,14 @@
                 <DataTemplate x:DataType="vm:SaberCard">
                   <Border Background="{StaticResource PanelHi}" CornerRadius="10" Padding="14,10">
                     <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
-                      <Border Background="#B068FF" CornerRadius="6" Width="54" Height="24" VerticalAlignment="Center">
-                        <TextBlock Text="SABER" FontSize="10" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                      </Border>
+                      <Panel Width="54" Height="54" VerticalAlignment="Center">
+                        <Border Background="#B068FF" CornerRadius="6" Width="54" Height="24" VerticalAlignment="Center" IsVisible="{Binding !HasCover}">
+                          <TextBlock Text="SABER" FontSize="10" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <Border CornerRadius="8" ClipToBounds="True" IsVisible="{Binding HasCover}">
+                          <Image Source="{Binding Cover}" Stretch="UniformToFill" />
+                        </Border>
+                      </Panel>
                       <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                         <TextBlock Classes="muted" Text="{Binding Detail}" FontSize="11" TextTrimming="CharacterEllipsis" />

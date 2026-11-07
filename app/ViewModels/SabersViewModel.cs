@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
+using System.IO.Compression;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using SaberBridge.Core;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -23,6 +25,11 @@ public partial class SaberCard : ObservableObject
     [ObservableProperty] private IBrush _statusBrush = Brushes.Gray;
     [ObservableProperty] private string _detail = "";
     [ObservableProperty] private bool _sourceMissing;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasCover))] private Bitmap? _cover;
+    [ObservableProperty] private bool _isWorking;
+
+    public bool HasCover => Cover != null;
+    private string? _coverKey;
 
     // the last conversion error stays visible until the saber converts fine
     public string? Error { get; set; }
@@ -30,6 +37,14 @@ public partial class SaberCard : ObservableObject
     public void Refresh()
     {
         SourceMissing = !Entry.SourceExists;
+        LoadCover();
+        if (IsWorking)
+        {
+            (StatusText, StatusBrush) = (L.Working, Brush.Parse("#4D9BFF"));
+            Detail = Entry.SourcePath;
+            return;
+        }
+
         (StatusText, StatusBrush) = Entry.State switch
         {
             SaberState.Converted => (L.SaberConverted, Brush.Parse("#3DDC97")),
@@ -37,7 +52,33 @@ public partial class SaberCard : ObservableObject
             _ => (L.SaberNotConverted, Brush.Parse("#8A90A8")),
         };
         if (Entry.State == SaberState.Converted) Error = null;
-        Detail = SourceMissing ? L.SaberSourceMissing(Entry.SourcePath) : Error ?? Entry.SourcePath;
+        Detail = SourceMissing ? L.SaberSourceMissing(Entry.SourcePath)
+            : Error ?? (Entry.State == SaberState.Converted ? $"{Path.GetFileName(Entry.SourcePath)}  →  {Path.GetFileName(Entry.OutputPath)}" : Entry.SourcePath);
+    }
+
+    // the cover comes from the converted .whacker (thumbnail.png), so it shows what the Quest will show
+    private void LoadCover()
+    {
+        string? path = Entry.State == SaberState.Converted ? Entry.OutputPath : null;
+        string? key = path == null ? null : path + "|" + File.GetLastWriteTimeUtc(path).Ticks;
+        if (key == _coverKey) return;
+        _coverKey = key;
+        Cover = null;
+        if (path == null) return;
+        try
+        {
+            using ZipArchive zip = ZipFile.OpenRead(path);
+            ZipArchiveEntry? thumb = zip.GetEntry("thumbnail.png");
+            if (thumb == null) return;
+            using MemoryStream ms = new();
+            using (Stream s = thumb.Open()) s.CopyTo(ms);
+            ms.Position = 0;
+            Cover = Bitmap.DecodeToWidth(ms, 96);
+        }
+        catch (Exception)
+        {
+            // a broken or locked file just shows no cover
+        }
     }
 }
 
@@ -133,6 +174,7 @@ public partial class SabersViewModel : ObservableObject, IDisposable
     {
         foreach (SaberCard c in Cards) c.Refresh();
         UpdateCounters();
+        ConvertCommand.NotifyCanExecuteChanged();
     }
 
     private List<SaberCard> Todo() => Cards.Where(c => c.Entry.SourceExists && c.Entry.State != SaberState.Converted).ToList();
@@ -160,6 +202,7 @@ public partial class SabersViewModel : ObservableObject, IDisposable
                 if (line.StartsWith("BEGIN ")) Status = L.SaberConverting(line[6..]);
                 SaberCard? card = todo.FirstOrDefault(c => line.Contains(Path.GetFileName(c.Entry.SourcePath)));
                 if (card == null) return;
+                card.IsWorking = line.StartsWith("BEGIN ") || line.StartsWith("STAGE ");
                 if (line.StartsWith("OK ") && line.Split(" -> ") is [_, var path])
                 {
                     card.Entry.OutputPath = path.Trim();
@@ -171,6 +214,9 @@ public partial class SabersViewModel : ObservableObject, IDisposable
                     card.Error = line[5..];
                     failed++;
                 }
+
+                card.Refresh();
+                UpdateCounters();
             }), _ => { }, CancellationToken.None, AppPaths.QuestProject);
 
             await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
