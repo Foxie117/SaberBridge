@@ -82,6 +82,7 @@ namespace SaberBridge
                 int trails = ConvertTrails(root, copier);
 
                 RemoveScripts(root);
+                KeepSaberScale(root);
 
                 // Qosmetics loads the object "_Whacker" from assets/qosmetics/_whacker.prefab, as its exporter writes it
                 root.name = "_Whacker";
@@ -173,6 +174,38 @@ namespace SaberBridge
             return id;
         }
 
+        // CustomSabers keeps the scale the author gave LeftSaber / RightSaber, but Qosmetics resets it to 1 (its saber width
+        // setting), which made such sabers come out too big. Move that scale onto a child holding the model, and scale the
+        // trail points by it, so the saber has the same size in the hand as on PC.
+        private static void KeepSaberScale(GameObject root)
+        {
+            foreach (string side in new[] { "LeftSaber", "RightSaber" })
+            {
+                Transform saber = root.transform.Find(side);
+                if (saber == null) continue;
+                Vector3 s = saber.localScale;
+                if ((s - Vector3.one).sqrMagnitude < 1e-6f) continue;
+
+                Transform model = new GameObject("Model").transform;
+                model.SetParent(saber, false);
+                model.localScale = s;
+                foreach (Transform child in saber.Cast<Transform>().ToList())
+                {
+                    if (child == model) continue;
+                    if (child.name == "Trail")
+                    {
+                        foreach (Transform point in child) point.localPosition = Vector3.Scale(point.localPosition, s);
+                        continue;
+                    }
+
+                    child.SetParent(model, false);
+                }
+
+                saber.localScale = Vector3.one;
+                Log($"INFO {side}: scale {s.x.ToString("0.###", Inv)} moved onto the model (Qosmetics resets the saber's own scale)");
+            }
+        }
+
         private static void Marker(Transform parent, string name, Transform at, string json)
         {
             GameObject go = new GameObject(name);
@@ -214,6 +247,12 @@ namespace SaberBridge
             AssetBundleBuild b = new AssetBundleBuild { assetBundleName = name, assetNames = new[] { prefabPath } };
             string tmp = Path.Combine(dir, "build_" + target);
             Directory.CreateDirectory(tmp);
+            // Quest renders both eyes in one pass (multiview); shaders built without stereo variants draw nothing there
+            PlayerSettings.stereoRenderingPath = target == BuildTarget.Android ? StereoRenderingPath.SinglePass : StereoRenderingPath.MultiPass;
+            Type vr = typeof(Editor).Assembly.GetType("UnityEditorInternal.VR.VREditor");
+            System.Reflection.MethodInfo setVr = vr?.GetMethod("SetVREnabledOnTargetGroup", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+            if (setVr == null) Log("INFO warning: cannot turn on VR for the build, sabers may be invisible on Quest");
+            setVr?.Invoke(null, new object[] { BuildPipeline.GetBuildTargetGroup(target), target == BuildTarget.Android });
             AssetBundleManifest m = BuildPipeline.BuildAssetBundles(tmp, new[] { b }, BuildAssetBundleOptions.None, target);
             if (m == null) throw new Exception("bundle build failed for " + target);
             File.Copy(Path.Combine(tmp, name), Path.Combine(dir, name), true);
