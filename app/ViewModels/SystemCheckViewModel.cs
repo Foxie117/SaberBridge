@@ -244,11 +244,11 @@ public partial class SystemCheckViewModel : ObservableObject
     // Android Build Support has its own silent installer next to the editor's; it goes into the editor's folder
     private async Task InstallAndroidDirect(CheckItem item, string unityExe)
     {
-        string file = await Downloads.FetchAsync(Downloads.UnityAndroidWindows, item.DownloadProgress(), CancellationToken.None);
+        string file = await Downloads.FetchAsync(Downloads.UnityAndroidWindows, item.DownloadProgress(), CancellationToken.None, Downloads.UnityPublisher);
         item.ProgressText = L.Installing;
         item.ProgressKnown = false;
         string editorDir = Path.GetDirectoryName(Path.GetDirectoryName(unityExe)!)!;
-        await Downloads.RunInstallerAsync(file, $"/S /D={editorDir}");
+        await Downloads.RunInstallersElevatedAsync(new[] { (file, $"/S /D={editorDir}") });
         _main.RefreshEnvironment();
     }
 
@@ -259,14 +259,24 @@ public partial class SystemCheckViewModel : ObservableObject
         return Task.CompletedTask;
     }
 
-    // the editor installer supports a silent install into the folder Unity Hub scans, so Hub lists it afterwards
+    // Everything Unity needs, downloaded (resumable, signature checked) and installed silently behind one admin
+    // prompt: Unity Hub when missing (needed once to sign in for the free license), the editor into the folder Hub
+    // scans, and on the Quest tab the Android module. Afterwards Hub is opened if no license is found yet.
     private async Task InstallUnityDirect(CheckItem item)
     {
-        string file = await Downloads.FetchAsync(Downloads.UnityEditorWindows, item.DownloadProgress(), CancellationToken.None);
+        bool quest = _main.IsQuestTab;
+        string target = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Unity", "Hub", "Editor", Compatibility.UnityVersion);
+        List<(string file, string args)> run = new();
+        if (Tools.UnityHub() == null)
+            run.Add((await Downloads.FetchAsync(Downloads.UnityHubWindows, item.DownloadProgress(), CancellationToken.None, Downloads.UnityPublisher), "/S"));
+        run.Add((await Downloads.FetchAsync(Downloads.UnityEditorWindows, item.DownloadProgress(), CancellationToken.None, Downloads.UnityPublisher), $"/S /D={target}"));
+        if (quest)
+            run.Add((await Downloads.FetchAsync(Downloads.UnityAndroidWindows, item.DownloadProgress(), CancellationToken.None, Downloads.UnityPublisher), $"/S /D={target}"));
+
         item.ProgressText = L.Installing;
         item.ProgressKnown = false;
-        string target = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Unity", "Hub", "Editor", Compatibility.UnityVersion);
-        await Downloads.RunInstallerAsync(file, $"/S /D={target}");
+        await Downloads.RunInstallersElevatedAsync(run);
         _main.RefreshEnvironment();
+        if (!Tools.UnityLicenseFound() && Tools.UnityHub() is { } hub) Tools.Open(hub);
     }
 }

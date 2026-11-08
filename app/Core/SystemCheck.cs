@@ -165,6 +165,7 @@ public static class Downloads
     public const string UnityHubLinuxDocs = "https://docs.unity3d.com/hub/manual/InstallHub.html#install-hub-linux";
     public const string UnityEditorWindows = $"https://download.unity3d.com/download_unity/{Compatibility.UnityChangeset}/Windows64EditorInstaller/UnitySetup64-{Compatibility.UnityVersion}.exe";
     public const string UnityAndroidWindows = $"https://download.unity3d.com/download_unity/{Compatibility.UnityChangeset}/TargetSupportInstaller/UnitySetup-Android-Support-for-Editor-{Compatibility.UnityVersion}.exe";
+    public const string UnityPublisher = "Unity Technologies";
     public const string UnityArchive = "https://unity.com/releases/editor/whats-new/2021.3.16";
     public const string BSManagerReleases = "https://github.com/Zagrios/bs-manager/releases/latest";
     public const string CustomAvatarsPage = "https://github.com/nicoco007/BeatSaberCustomAvatars";
@@ -197,41 +198,188 @@ public static class Downloads
         throw new InvalidOperationException("no Windows installer in the latest BSManager release");
     }
 
-    public static async Task<string> FetchAsync(string url, IProgress<(long done, long? total)> progress, CancellationToken ct)
+    private const long Piece = 16L << 20;
+
+    /// <summary>
+    /// Downloads into the app's temp folder. Big files come in 16 MB ranges, each retried on its own, and a download
+    /// cut off halfway resumes from its ".part" file, so a flaky network that drops long connections still gets there.
+    /// With <paramref name="signer"/>, a Windows file must carry a valid signature from that publisher.
+    /// </summary>
+    public static async Task<string> FetchAsync(string url, IProgress<(long done, long? total)> progress, CancellationToken ct, string? signer = null)
     {
         string dir = Path.Combine(AppPaths.Temp, "downloads");
         Directory.CreateDirectory(dir);
         string file = Path.Combine(dir, Path.GetFileName(new Uri(url).LocalPath));
         string part = file + ".part";
 
-        using HttpResponseMessage r = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
-        r.EnsureSuccessStatusCode();
-        long? total = r.Content.Headers.ContentLength;
-        if (File.Exists(file) && total != null && new FileInfo(file).Length == total) return file;
-
-        await using (Stream src = await r.Content.ReadAsStreamAsync(ct))
-        await using (FileStream dst = File.Create(part))
+        long? total = await LengthAsync(url, ct);
+        bool done = File.Exists(file) && total != null && new FileInfo(file).Length == total;
+        if (!done)
         {
-            byte[] buf = new byte[1 << 20];
-            long done = 0;
-            int n;
-            DateTime last = DateTime.MinValue;
-            while ((n = await src.ReadAsync(buf, ct)) > 0)
-            {
-                await dst.WriteAsync(buf.AsMemory(0, n), ct);
-                done += n;
-                if ((DateTime.Now - last).TotalMilliseconds > 200)
-                {
-                    progress.Report((done, total));
-                    last = DateTime.Now;
-                }
-            }
-
-            progress.Report((done, total));
+            if (total == null) await FetchWholeAsync(url, part, progress, ct);
+            else await FetchRangesAsync(url, part, total.Value, progress, ct);
+            File.Move(part, file, true);
         }
 
-        File.Move(part, file, true);
+        if (signer != null && OperatingSystem.IsWindows() && !await SignedByAsync(file, signer))
+        {
+            File.Delete(file);
+            throw new InvalidOperationException($"{Path.GetFileName(file)} is not signed by {signer}; deleted it");
+        }
+
         return file;
+    }
+
+    // the size, but only when the server can send pieces of the file
+    private static async Task<long?> LengthAsync(string url, CancellationToken ct)
+    {
+        try
+        {
+            using HttpRequestMessage head = new(HttpMethod.Head, url);
+            using HttpResponseMessage r = await Http.SendAsync(head, ct);
+            if (!r.IsSuccessStatusCode) return null;
+            return r.Headers.AcceptRanges.Contains("bytes") ? r.Content.Headers.ContentLength : null;
+        }
+        catch (HttpRequestException)
+        {
+            return null;
+        }
+    }
+
+    private static async Task FetchRangesAsync(string url, string part, long total, IProgress<(long done, long? total)> progress, CancellationToken ct)
+    {
+        long have = File.Exists(part) ? new FileInfo(part).Length : 0;
+        if (have > total) have = 0;
+        await using FileStream dst = new(part, have > 0 ? FileMode.Append : FileMode.Create, FileAccess.Write);
+        byte[] buf = new byte[1 << 20];
+        DateTime last = DateTime.MinValue;
+        int failures = 0;
+
+        while (have < total)
+        {
+            long end = Math.Min(have + Piece, total) - 1;
+            try
+            {
+                using HttpRequestMessage req = new(HttpMethod.Get, url);
+                req.Headers.Range = new RangeHeaderValue(have, end);
+                using HttpResponseMessage r = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+                r.EnsureSuccessStatusCode();
+                if (r.StatusCode != System.Net.HttpStatusCode.PartialContent) throw new HttpRequestException("server ignored the range");
+                await using Stream src = await r.Content.ReadAsStreamAsync(ct);
+                int n;
+                while ((n = await src.ReadAsync(buf, ct)) > 0)
+                {
+                    await dst.WriteAsync(buf.AsMemory(0, n), ct);
+                    have += n;
+                    if ((DateTime.Now - last).TotalMilliseconds > 200)
+                    {
+                        progress.Report((have, total));
+                        last = DateTime.Now;
+                    }
+                }
+
+                await dst.FlushAsync(ct);
+                failures = 0;
+            }
+            catch (Exception ex) when (ex is HttpRequestException or IOException || (ex is TaskCanceledException && !ct.IsCancellationRequested))
+            {
+                // keep what arrived; a piece that broke halfway continues from the current length
+                await dst.FlushAsync(ct);
+                if (++failures > 12) throw;
+                await Task.Delay(TimeSpan.FromSeconds(Math.Min(30, 2 * failures)), ct);
+            }
+        }
+
+        progress.Report((have, total));
+    }
+
+    private static async Task FetchWholeAsync(string url, string part, IProgress<(long done, long? total)> progress, CancellationToken ct)
+    {
+        for (int attempt = 1; ; attempt++)
+        {
+            try
+            {
+                using HttpResponseMessage r = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
+                r.EnsureSuccessStatusCode();
+                long? total = r.Content.Headers.ContentLength;
+                await using Stream src = await r.Content.ReadAsStreamAsync(ct);
+                await using FileStream dst = File.Create(part);
+                byte[] buf = new byte[1 << 20];
+                long done = 0;
+                int n;
+                DateTime last = DateTime.MinValue;
+                while ((n = await src.ReadAsync(buf, ct)) > 0)
+                {
+                    await dst.WriteAsync(buf.AsMemory(0, n), ct);
+                    done += n;
+                    if ((DateTime.Now - last).TotalMilliseconds > 200)
+                    {
+                        progress.Report((done, total));
+                        last = DateTime.Now;
+                    }
+                }
+
+                progress.Report((done, total));
+                return;
+            }
+            catch (Exception ex) when (attempt < 4 && (ex is HttpRequestException or IOException || (ex is TaskCanceledException && !ct.IsCancellationRequested)))
+            {
+                await Task.Delay(TimeSpan.FromSeconds(3 * attempt), ct);
+            }
+        }
+    }
+
+    /// <summary>True when Windows reports a valid Authenticode signature whose signer names <paramref name="publisher"/>.</summary>
+    public static async Task<bool> SignedByAsync(string file, string publisher)
+    {
+        string path = file.Replace("'", "''");
+        ProcessStartInfo psi = new("powershell.exe")
+        {
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            CreateNoWindow = true,
+        };
+        string command = "$s = Get-AuthenticodeSignature -LiteralPath '" + path + "'; \"$($s.Status)|$($s.SignerCertificate.Subject)\"";
+        foreach (string a in new[] { "-NoProfile", "-NonInteractive", "-Command", command }) psi.ArgumentList.Add(a);
+        using Process? p = Process.Start(psi);
+        if (p == null) return false;
+        string output = (await p.StandardOutput.ReadToEndAsync()).Trim();
+        await p.WaitForExitAsync();
+        string[] parts = output.Split('|', 2);
+        return parts.Length == 2 && parts[0] == "Valid" && parts[1].Contains(publisher, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Runs several silent installers one after another behind a single admin prompt: a small script starts each with
+    /// its raw arguments and waits for it. Returns false when the user declined the prompt.
+    /// </summary>
+    public static async Task<bool> RunInstallersElevatedAsync(IReadOnlyList<(string file, string args)> installers)
+    {
+        if (installers.Count == 0) return true;
+        string script = Path.Combine(AppPaths.Temp, "downloads", "install.ps1");
+        System.Text.StringBuilder sb = new();
+        sb.AppendLine("$ErrorActionPreference = 'Stop'");
+        foreach ((string file, string args) in installers)
+            sb.AppendLine("Start-Process -FilePath '" + file.Replace("'", "''") + "' -ArgumentList '" + args.Replace("'", "''") + "' -Wait");
+        await File.WriteAllTextAsync(script, sb.ToString());
+
+        ProcessStartInfo psi = new("powershell.exe", "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"" + script + "\"")
+        {
+            UseShellExecute = true,
+            Verb = "runas",
+            WindowStyle = ProcessWindowStyle.Hidden,
+        };
+        try
+        {
+            using Process? p = Process.Start(psi);
+            if (p != null) await p.WaitForExitAsync();
+            return true;
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            // the user said no to the admin prompt
+            return false;
+        }
     }
 
     /// <summary>Starts an installer and waits for it; Windows asks for admin rights where the installer needs them.</summary>
