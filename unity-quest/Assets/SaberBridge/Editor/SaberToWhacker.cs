@@ -81,7 +81,7 @@ namespace SaberBridge
                 Log("STAGE trails");
                 int trails = ConvertTrails(root, copier);
 
-                RemoveScripts(root);
+                root = RemoveScripts(root);
                 KeepSaberScale(root);
 
                 // Qosmetics loads the object "_Whacker" from assets/qosmetics/_whacker.prefab, as its exporter writes it
@@ -226,8 +226,9 @@ namespace SaberBridge
             t.enabled = false;
         }
 
-        // CustomSabers scripts (and anything else that is not Unity's) cannot exist on the Quest
-        internal static void RemoveScripts(GameObject root)
+        // CustomSabers scripts (and anything else that is not Unity's) cannot exist on the Quest. Returns the root, which
+        // is a new object when the old one had to be rebuilt.
+        internal static GameObject RemoveScripts(GameObject root)
         {
             foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
             {
@@ -237,7 +238,39 @@ namespace SaberBridge
                 }
 
                 GameObjectUtility.RemoveMonoBehavioursWithMissingScript(t.gameObject);
+                if (t.GetComponents<Component>().Any(c => c == null))
+                {
+                    bool isRoot = t == root.transform;
+                    GameObject fresh = Rebuild(t.gameObject);
+                    if (isRoot) root = fresh;
+                }
             }
+            return root;
+        }
+
+        // A script whose saved data does not fit the class it binds to (another mod version, a changed field type) can
+        // load as a null component that is neither removable nor "missing", and Unity then refuses to save the prefab.
+        // Such an object is replaced by a new one with the same transform, children and readable components.
+        private static GameObject Rebuild(GameObject old)
+        {
+            GameObject fresh = new GameObject(old.name) { layer = old.layer, tag = old.tag };
+            Transform f = fresh.transform, o = old.transform;
+            f.SetParent(o.parent, false);
+            f.SetSiblingIndex(o.GetSiblingIndex());
+            f.localPosition = o.localPosition;
+            f.localRotation = o.localRotation;
+            f.localScale = o.localScale;
+            foreach (Component c in old.GetComponents<Component>())
+            {
+                if (c == null || c is Transform) continue;
+                UnityEditorInternal.ComponentUtility.CopyComponent(c);
+                UnityEditorInternal.ComponentUtility.PasteComponentAsNew(fresh);
+            }
+            while (o.childCount > 0) o.GetChild(0).SetParent(f, false);
+            fresh.SetActive(old.activeSelf);
+            UnityEngine.Object.DestroyImmediate(old);
+            Log($"INFO rebuilt {fresh.name}: it had a script that cannot be read");
+            return fresh;
         }
 
         // ---------------------------------------------------------------- packaging

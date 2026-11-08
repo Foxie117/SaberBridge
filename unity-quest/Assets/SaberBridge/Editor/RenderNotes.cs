@@ -8,7 +8,7 @@ using UnityEngine;
 namespace SaberBridge
 {
     // Development aid: renders note bundles (.bloq, or *_pc from a .cyoob) the way each mod places them under the game's
-    // note cube: Custom Notes at scale 1 keeping each object's own transform, Qosmetics at scale 0.4 with it reset.
+    // note cube: Custom Notes at the centre with scale 0.4 keeping each object's rotation, Qosmetics at scale 0.4 with it reset.
     // A 0.5 m grey frame next to each row shows the size of a normal note.
     //   Unity.exe -batchmode -quit -projectPath unity-quest -executeMethod SaberBridge.RenderNotes.Run -dir <folder> -out <folder>
     public static class RenderNotes
@@ -54,7 +54,10 @@ namespace SaberBridge
                     }
                     else
                     {
+                        // Custom Notes: object at the cube's centre, scale 0.4, own rotation
                         src.SetParent(cube, false);
+                        src.localPosition = Vector3.zero;
+                        src.localScale = Vector3.one * 0.4f;
                     }
 
                     Color tint = parts[i].Contains("Left") ? new Color(0.78f, 0.1f, 0.1f) : new Color(0.15f, 0.5f, 0.85f);

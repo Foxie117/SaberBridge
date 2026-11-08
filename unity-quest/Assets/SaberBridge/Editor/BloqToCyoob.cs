@@ -18,14 +18,13 @@ namespace SaberBridge
     ///
     /// Layout Qosmetics loads (object "_Cyoob"): Notes/{LeftArrow,RightArrow,LeftDot,RightDot}, Bomb,
     /// Chains/{LeftHead,RightHead,LeftLink,RightLink}. Qosmetics resets each of these objects' own transform and puts the
-    /// "Notes" object at scale 0.4 under the game's note cube, while Custom Notes puts its objects at scale 1 under the
-    /// same cube and keeps their own rotation and scale. So each PC object goes, with its own transform scaled by 2.5,
-    /// inside the matching Quest object, and the note has the same size and pose on the Quest as on PC.
+    /// "Notes" object at scale 0.4 under the game's note cube. Custom Notes also ignores each object's own position and
+    /// scale: it puts the object at the cube's centre with scale 0.4 and keeps only its rotation. So each PC object goes
+    /// inside the matching Quest object at position 0, scale 1, own rotation, and the note has the same size and pose
+    /// on the Quest as on PC, whatever transform its author left in the prefab.
     /// </summary>
     public static class BloqToCyoob
     {
-        private const float QuestToPc = 1 / 0.4f;
-
         public static void Run()
         {
             string[] args = Environment.GetCommandLineArgs();
@@ -77,7 +76,7 @@ namespace SaberBridge
                 AssetCopier copier = new AssetCopier(work);
                 copier.CopyRenderers(pc);
                 ApplyNoteColors(pc, copier, usesNoteColor);
-                RemoveScripts(pc);
+                pc = RemoveScripts(pc);
 
                 Log("STAGE layout");
                 GameObject root = new GameObject("_Cyoob");
@@ -178,7 +177,7 @@ namespace SaberBridge
             return t;
         }
 
-        // moves the PC object into a new Quest object of the given name, keeping its look under Qosmetics' 0.4 scale
+        // moves the PC object into a new Quest object of the given name, placed the way Custom Notes places it (centre, scale 0.4 overall, own rotation)
         private static Transform Take(GameObject pc, string pcName, Transform parent, string questName)
         {
             Transform source = pc.transform.Find(pcName);
@@ -187,8 +186,8 @@ namespace SaberBridge
             Transform target = new GameObject(questName).transform;
             target.SetParent(parent, false);
             source.SetParent(target, false);
-            source.localPosition *= QuestToPc;
-            source.localScale *= QuestToPc;
+            source.localPosition = Vector3.zero;
+            source.localScale = Vector3.one;
             return target;
         }
 
