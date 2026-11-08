@@ -52,7 +52,7 @@ public sealed class Converter
         _game = game;
         _ui = ui;
         string stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
-        _outDir = Path.Combine(AppPaths.Output, stamp);
+        _outDir = AppPaths.PcAvatars;
         _coverDir = Path.Combine(AppPaths.Output, stamp + "-covers");
     }
 
@@ -153,7 +153,8 @@ public sealed class Converter
     private async Task RunGroup(IReadOnlyList<InputJob> jobs, string method, string[] args, Func<string, InputJob?> jobFor,
                                 Action<string, Action<InputJob, JobState, string?>> match, CancellationToken ct)
     {
-        HashSet<string> before = Directory.GetFiles(_outDir, "*.avatar").ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // the folder keeps earlier avatars too; this run's files are the ones written from now on
+        DateTime started = DateTime.UtcNow.AddSeconds(-2);
         HashSet<InputJob> finished = new();
         int ok = 0;
         int imported = 0;
@@ -226,7 +227,7 @@ public sealed class Converter
             _ui.Progress(new ProgressInfo("first-import", null, 0, _units, Math.Min(99, 100.0 * imported / FirstImportAssets), null, 0));
         }, ct);
 
-        foreach (string file in Directory.GetFiles(_outDir, "*.avatar").Where(f => !before.Contains(f)).OrderBy(f => f))
+        foreach (string file in Directory.GetFiles(_outDir, "*.avatar").Where(f => File.GetLastWriteTimeUtc(f) >= started).OrderBy(f => f))
         {
             string cover = Path.Combine(_coverDir, Path.GetFileNameWithoutExtension(file) + ".png");
             _ui.Built(new BuiltAvatar(file, File.Exists(cover) ? cover : null));

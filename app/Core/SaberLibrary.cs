@@ -31,8 +31,10 @@ public sealed class SaberLibrary
 
     public List<SaberEntry> Entries { get; private set; } = new();
 
-    public static string DefaultOutputDir =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "SaberBridge", "Quest Sabers");
+    public static string DefaultOutputDir => AppPaths.QuestRoot;
+
+    /// <summary>Sabers and notes go to their own folders under the Quest output folder.</summary>
+    public static string FolderFor(string root, QuestKind kind) => Path.Combine(root, kind == QuestKind.Note ? "Notes" : "Sabers");
 
     public static SaberLibrary Load()
     {

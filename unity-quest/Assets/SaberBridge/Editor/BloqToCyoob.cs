@@ -48,7 +48,7 @@ namespace SaberBridge
             }
         }
 
-        private static string Convert(string bloqPath, string outDir)
+        internal static string Convert(string bloqPath, string outDir)
         {
             // a new scene unloads unused assets, which would also wipe the script data of an already loaded bundle
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);

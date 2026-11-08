@@ -83,6 +83,11 @@ public static class L
     public static string NoteDropTitle => T("Перетащи ноты .bloq сюда", "Drop .bloq files here");
     public static string NoteDropHint => T(".bloq (ПК, Custom Notes)  →  .cyoob (Quest, Qosmetics)", ".bloq (PC, Custom Notes)  →  .cyoob (Quest, Qosmetics)");
     public static string NotesEmpty => T("Перетащи сюда ноты с ПК (.bloq) — они появятся в этом списке.", "Drop PC notes (.bloq) here; they will show up in this list.");
+    public static string QuestQueue => T("Очередь Quest", "Quest queue");
+    public static string QuestDropTitle => T("Перетащи сюда сейберы и ноты", "Drop sabers and notes here");
+    public static string QuestDropHint => T(".saber → .whacker  ·  .bloq → .cyoob", ".saber → .whacker  ·  .bloq → .cyoob");
+    public static string QuestEmpty => T("Перетащи сюда сейберы (.saber) и ноты (.bloq) с ПК — сразу пачкой, вперемешку. Одна кнопка «Конвертировать» сделает всё.", "Drop PC sabers (.saber) and notes (.bloq) here, as many and as mixed as you like. One Convert press makes them all.");
+    public static string AddedToOtherQueue(int n, string tab) => T($"{n} файл(ов) добавлено в очередь «{tab}» — они ждут там.", $"{n} file(s) added to the {tab} queue; they wait there.");
     public static string ChkAndroid => T("Модуль Android для Unity", "Unity Android module");
     public static string ChkAndroidOk => T("Установлен: Unity может собирать файлы для Quest.", "Installed: Unity can build files for the Quest.");
     public static string ChkAndroidMissing => T("Нет модуля «Android Build Support»: без него Unity не соберёт файлы для Quest.", "\"Android Build Support\" is missing; Unity needs it to build files for the Quest.");
@@ -90,7 +95,7 @@ public static class L
     public static string SaberDropTitle => T("Перетащи сейберы .saber сюда", "Drop .saber files here");
     public static string SaberDropHint => T(".saber (ПК)  →  .whacker (Quest, Qosmetics)", ".saber (PC)  →  .whacker (Quest, Qosmetics)");
     public static string SabersEmpty => T("Перетащи сюда сейберы с ПК (.saber) — они появятся в этом списке.", "Drop PC sabers (.saber) here; they will show up in this list.");
-    public static string QuestFolderHint => T("Сюда кладутся готовые .whacker и .cyoob. Отсюда их ставишь на Quest через Mods Before Friday.", "Finished .whacker and .cyoob files go here. Install them on the Quest with Mods Before Friday.");
+    public static string QuestFolderHint => T("Готовые сейберы кладутся в подпапку Sabers, ноты — в Notes. Отсюда их ставишь на Quest через Mods Before Friday.", "Finished sabers go to the Sabers subfolder, notes to Notes. Install them on the Quest with Mods Before Friday.");
     public static string QuestFolder => T("Папка для Quest", "Quest folder");
     public static string SaberConverted => T("сконвертирован", "converted");
     public static string SaberNotConverted => T("не сконвертирован", "not converted");

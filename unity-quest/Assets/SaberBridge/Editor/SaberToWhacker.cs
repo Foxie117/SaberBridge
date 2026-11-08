@@ -50,7 +50,7 @@ namespace SaberBridge
 
         internal static void Log(string s) => Debug.Log("[SB] " + s);
 
-        private static string Convert(string saberPath, string outDir)
+        internal static string Convert(string saberPath, string outDir)
         {
             // a new scene unloads unused assets, which would also wipe the script data of an already loaded saber
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);

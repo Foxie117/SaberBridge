@@ -21,6 +21,8 @@ public partial class MainViewModel : ObservableObject, IConversionListener
         _autoInstall = _settings.AutoInstall;
         SystemCheck = new SystemCheckViewModel(this);
         Sabers = new SabersViewModel(_settings);
+        Sabers.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(SabersViewModel.Pending)) OnPropertyChanged(nameof(QuestTabTitle)); };
+        Queue.CollectionChanged += (_, _) => OnPropertyChanged(nameof(PcTabTitle));
         _tab = _settings.LastTab == 1 ? 1 : 0;
         RefreshEnvironment();
         ShowSystemCheck = SystemCheck.Blocked;
@@ -96,6 +98,10 @@ public partial class MainViewModel : ObservableObject, IConversionListener
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(PreviewAllLabel), nameof(HasMissingPreviews))] private int _missingPreviews;
 
     public bool QueueEmpty => Queue.Count == 0;
+
+    // each mode keeps its own queue; the tab buttons show how much waits there
+    public string PcTabTitle => Queue.Count > 0 ? $"{L.TabPc}  ·  {Queue.Count}" : L.TabPc;
+    public string QuestTabTitle => Sabers.Pending > 0 ? $"{L.TabQuest}  ·  {Sabers.Pending}" : L.TabQuest;
     public bool LibraryEmpty => Avatars.Count == 0;
     public string LibraryHeader => Avatars.Count == 0 ? L.Library : $"{L.Library} · {Avatars.Count}";
     public bool HasNewToInstall => Avatars.Any(a => a.IsNew && a.CanInstall);
@@ -170,18 +176,25 @@ public partial class MainViewModel : ObservableObject, IConversionListener
         {
             List<InputJob> jobs = await Task.Run(() => InputScanner.Scan(paths.ToList()));
 
-            // sabers and notes go to the Quest tab; if that is all that was dropped, show it
+            // every file goes to the queue of its mode (sabers and notes: Quest, models: PC), wherever it was
+            // dropped; the open tab stays, and a note says what went to the other one
             List<InputJob> quest = jobs.Where(j => j.Kind is JobKind.Saber or JobKind.Note).ToList();
-            if (quest.Count > 0)
-            {
-                Sabers.AddFiles(quest);
-                if (quest.Count == jobs.Count) Tab = 1;
-            }
+            if (quest.Count > 0) Sabers.AddFiles(quest);
 
+            int pc = 0;
             foreach (InputJob job in jobs.Where(j => j.Kind is not (JobKind.Saber or JobKind.Note)))
             {
                 if (Queue.Any(q => q.Job.File == job.File)) continue;
                 Queue.Add(new QueueItem(job));
+                pc++;
+            }
+
+            int other = IsQuestTab ? pc : quest.Count;
+            if (other > 0)
+            {
+                Status = L.AddedToOtherQueue(other, IsQuestTab ? L.TabPc : L.TabQuest);
+                if (IsQuestTab) Sabers.Status = Status;
+                before = Status;
             }
         }
         catch (Exception ex)
@@ -464,7 +477,7 @@ public partial class MainViewModel : ObservableObject, IConversionListener
     // ---------------------------------------------------------------- misc commands
 
     [RelayCommand]
-    private void OpenOutput() => Tools.Open(Directory.CreateDirectory(_lastOutDir ?? AppPaths.Output).FullName);
+    private void OpenOutput() => Tools.Open(Directory.CreateDirectory(_lastOutDir ?? AppPaths.PcAvatars).FullName);
 
     [RelayCommand]
     private void OpenGameAvatars()

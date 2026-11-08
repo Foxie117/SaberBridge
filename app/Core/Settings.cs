@@ -12,6 +12,11 @@ public static class AppPaths
     public static string UnityProject => Path.Combine(Data, "unity");
     public static string QuestProject => Path.Combine(Data, "unity-quest");
     public static string Output => Path.Combine(Data, "output");
+
+    /// <summary>What the user keeps: Documents\SaberBridge\PC\Avatars, Quest\Sabers, Quest\Notes.</summary>
+    public static string UserRoot => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "SaberBridge");
+    public static string PcAvatars => Path.Combine(UserRoot, "PC", "Avatars");
+    public static string QuestRoot => Path.Combine(UserRoot, "Quest");
     public static string Temp => Path.Combine(Data, "temp");
     public static string Logs => Path.Combine(Data, "logs");
     public static string SettingsFile => Path.Combine(Data, "settings.json");
