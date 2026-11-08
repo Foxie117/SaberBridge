@@ -235,10 +235,18 @@ public static class Downloads
     {
         try
         {
-            using HttpRequestMessage head = new(HttpMethod.Head, url);
-            using HttpResponseMessage r = await Http.SendAsync(head, ct);
-            if (!r.IsSuccessStatusCode) return null;
-            return r.Headers.AcceptRanges.Contains("bytes") ? r.Content.Headers.ContentLength : null;
+            // a one-byte range request: more reliable than HEAD on Unity's CDN, and it proves ranges work
+            for (int attempt = 1; attempt <= 3; attempt++)
+            {
+                using HttpRequestMessage probe = new(HttpMethod.Get, url);
+                probe.Headers.Range = new RangeHeaderValue(0, 0);
+                using HttpResponseMessage r = await Http.SendAsync(probe, HttpCompletionOption.ResponseHeadersRead, ct);
+                if (r.StatusCode == System.Net.HttpStatusCode.PartialContent && r.Content.Headers.ContentRange?.Length is long len) return len;
+                if (r.IsSuccessStatusCode) return null;
+                await Task.Delay(1000 * attempt, ct);
+            }
+
+            return null;
         }
         catch (HttpRequestException)
         {

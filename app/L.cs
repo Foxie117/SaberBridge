@@ -199,7 +199,7 @@ public static class L
     public static string ChkUnity => T($"Unity {Compatibility.UnityVersion}", $"Unity {Compatibility.UnityVersion}");
     public static string ChkUnityOk => T("Установлена", "Installed");
     public static string ChkUnityOther(string v) => T($"Нужной версии нет, будет использована {v}. Лучше поставить {Compatibility.UnityVersion}.", $"Exact version missing; {v} will be used. Installing {Compatibility.UnityVersion} is recommended.");
-    public static string ChkUnityMissing => T($"Не установлена. Её требует Custom Avatars 5.x для сборки аватаров (около 3 ГБ на диске).", $"Not installed. Custom Avatars 5.x needs it to build avatars (about 3 GB on disk).");
+    public static string ChkUnityMissing => T($"Не установлена. Кнопка ниже сама скачает и тихо поставит Unity Hub, Unity {Compatibility.UnityVersion} и нужные модули (около 3 ГБ на диске, один запрос прав администратора). Останется только войти в бесплатный аккаунт Unity.", $"Not installed. The button below downloads and silently installs Unity Hub, Unity {Compatibility.UnityVersion} and the modules it needs (about 3 GB on disk, one admin prompt). Only signing in to a free Unity account is left to you.");
     public static string ChkWinSupport => T("Модуль Windows Build Support", "Windows Build Support module");
     public static string ChkWinSupportOk => T("Есть", "Present");
     public static string ChkWinSupportMissing => T("Нет модуля «Windows Build Support (Mono)». Добавь его в Unity Hub: Installs → ⚙ у версии → Add modules.", "\"Windows Build Support (Mono)\" is missing. Add it in Unity Hub: Installs → ⚙ next to the version → Add modules.");
@@ -214,6 +214,11 @@ public static class L
     public static string ActInstallHub => T("Скачать и установить Unity Hub", "Download and install Unity Hub");
     public static string ActInstallUnityHub => T("Установить через Unity Hub", "Install with Unity Hub");
     public static string ActInstallUnityDirect => T("Скачать и установить напрямую (2,4 ГБ)", "Download and install directly (2.4 GB)");
+    public static string ActInstallAll => T("Установить всё автоматически", "Install everything automatically");
+    public static string ActSignIn => T("Войти в Unity Hub", "Sign in to Unity Hub");
+    public static string WaitingForLicense => T("Войди в аккаунт Unity в открывшемся Unity Hub (бесплатно). Если Hub попросит лицензию — выбери «Personal». Программа сама заметит лицензию и продолжит.", "Sign in to your Unity account in the Unity Hub window (free). If Hub asks for a license, pick Personal. The app notices the license by itself and carries on.");
+    public static string LicenseTimeout => T("Лицензия так и не появилась. Войди в Unity Hub и нажми «Проверить снова».", "No license appeared. Sign in to Unity Hub, then press Check again.");
+    public static string AdminDeclined => T("Установка отменена: Windows не получила разрешение администратора.", "Install cancelled: Windows did not get admin permission.");
     public static string ActOpenHub => T("Открыть Unity Hub", "Open Unity Hub");
     public static string ActInstructions => T("Инструкция", "Instructions");
     public static string Downloading(double doneMb, double? totalMb) => totalMb is { } t ? T($"Скачиваю {doneMb:0} из {t:0} МБ", $"Downloading {doneMb:0} of {t:0} MB") : T($"Скачиваю {doneMb:0} МБ", $"Downloading {doneMb:0} MB");

@@ -119,9 +119,9 @@ public partial class SystemCheckViewModel : ObservableObject
         if (unity == null)
         {
             List<CheckAction> acts = new();
-            if (hub != null) acts.Add(new CheckAction(L.ActInstallUnityHub, InstallUnityViaHub, true));
-            if (OperatingSystem.IsWindows()) acts.Add(new CheckAction(L.ActInstallUnityDirect, InstallUnityDirect, hub == null));
-            else if (hub == null) acts.Add(InstallHubAction());
+            if (OperatingSystem.IsWindows()) acts.Add(new CheckAction(L.ActInstallAll, InstallUnityDirect, true));
+            if (hub != null) acts.Add(new CheckAction(L.ActInstallUnityHub, InstallUnityViaHub, !OperatingSystem.IsWindows()));
+            else if (!OperatingSystem.IsWindows()) acts.Add(InstallHubAction());
             Items.Add(new CheckItem(L.ChkUnity, CheckLevel.Missing, L.ChkUnityMissing, true, acts.ToArray()));
         }
         else
@@ -152,7 +152,7 @@ public partial class SystemCheckViewModel : ObservableObject
             Items.Add(Tools.UnityLicenseFound()
                 ? new CheckItem(L.ChkLicense, CheckLevel.Ok, L.ChkLicenseOk, false)
                 : new CheckItem(L.ChkLicense, CheckLevel.Warn, L.ChkLicenseMissing, false,
-                    hub != null ? new CheckAction(L.ActOpenHub, _ => { Tools.Open(hub); return Task.CompletedTask; }, true) : InstallHubAction()));
+                    hub != null ? new CheckAction(L.ActSignIn, WaitForLicense, true) : InstallHubAction()));
         }
 
         Blocked = Items.Any(i => i.Blocking);
@@ -275,8 +275,35 @@ public partial class SystemCheckViewModel : ObservableObject
 
         item.ProgressText = L.Installing;
         item.ProgressKnown = false;
-        await Downloads.RunInstallersElevatedAsync(run);
+        if (!await Downloads.RunInstallersElevatedAsync(run))
+        {
+            item.ProgressText = L.AdminDeclined;
+            return;
+        }
+
+        if (!Tools.UnityLicenseFound() && Tools.UnityHub() != null) await WaitForLicense(item);
         _main.RefreshEnvironment();
-        if (!Tools.UnityLicenseFound() && Tools.UnityHub() is { } hub) Tools.Open(hub);
+    }
+
+    // Unity's free Personal license is tied to a Unity account, so signing in is the one step left to the user: Unity
+    // Hub opens, and the app notices the license file by itself and carries on.
+    private async Task WaitForLicense(CheckItem item)
+    {
+        if (Tools.UnityHub() is { } hub) Tools.Open(hub);
+        item.ProgressText = L.WaitingForLicense;
+        item.ProgressKnown = false;
+        DateTime until = DateTime.Now.AddMinutes(30);
+        while (!Tools.UnityLicenseFound())
+        {
+            if (DateTime.Now > until)
+            {
+                item.ProgressText = L.LicenseTimeout;
+                return;
+            }
+
+            await Task.Delay(3000);
+        }
+
+        _main.RefreshEnvironment();
     }
 }
