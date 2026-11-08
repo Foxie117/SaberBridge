@@ -28,7 +28,7 @@
               BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="22" Padding="4">
         <StackPanel Orientation="Horizontal" Spacing="4">
           <Button Classes="tab" Classes.active="{Binding IsAvatarsTab}" Content="{x:Static app:L.TabPc}" Command="{Binding SelectTabCommand}" CommandParameter="0" />
-          <Button Classes="tab" Classes.active="{Binding IsSabersTab}" Content="{x:Static app:L.TabQuest}" Command="{Binding SelectTabCommand}" CommandParameter="1" />
+          <Button Classes="tab" Classes.active="{Binding IsQuestTab}" Content="{x:Static app:L.TabQuest}" Command="{Binding SelectTabCommand}" CommandParameter="1" />
         </StackPanel>
       </Border>
 
@@ -42,12 +42,12 @@
         </Button>
         <Border Classes="card" Padding="12,6" CornerRadius="20">
           <StackPanel Orientation="Horizontal" Spacing="8">
-            <Ellipse Width="8" Height="8" Fill="{StaticResource Ok}" IsVisible="{Binding UnityOk}" />
-            <Ellipse Width="8" Height="8" Fill="{StaticResource Red}" IsVisible="{Binding !UnityOk}" />
+            <Ellipse Width="8" Height="8" Fill="{StaticResource Ok}" IsVisible="{Binding UnityReady}" />
+            <Ellipse Width="8" Height="8" Fill="{StaticResource Red}" IsVisible="{Binding !UnityReady}" />
             <TextBlock Text="{Binding UnityText}" FontSize="12" VerticalAlignment="Center" />
           </StackPanel>
         </Border>
-        <Border Classes="card" Padding="12,2,4,2" CornerRadius="20">
+        <Border Classes="card" Padding="12,2,4,2" CornerRadius="20" IsVisible="{Binding IsAvatarsTab}">
           <StackPanel Orientation="Horizontal" Spacing="8">
             <Ellipse Width="8" Height="8" Fill="{StaticResource Ok}" IsVisible="{Binding GameOk}" />
             <Ellipse Width="8" Height="8" Fill="{StaticResource Red}" IsVisible="{Binding !GameOk}" />
@@ -195,15 +195,21 @@
       </Border>
     </Grid>
 
-    <!-- Quest sabers tab -->
-    <Grid Grid.Row="2" Grid.RowSpan="2" RowDefinitions="Auto,*,Auto" Margin="24,20,24,16" IsVisible="{Binding IsSabersTab}">
-      <Grid ColumnDefinitions="400,*">
+    <!-- Quest tab: sabers or notes -->
+    <Grid Grid.Row="2" Grid.RowSpan="2" RowDefinitions="Auto,Auto,*,Auto" Margin="24,16,24,16" IsVisible="{Binding IsQuestTab}">
+      <Border HorizontalAlignment="Left" Background="{StaticResource Panel}" CornerRadius="18" Padding="4" Margin="0,0,0,14">
+        <StackPanel Orientation="Horizontal" Spacing="4">
+          <Button Classes="tab" Classes.active="{Binding Sabers.IsSabers}" Content="{x:Static app:L.KindSabers}" Command="{Binding Sabers.SelectKindCommand}" CommandParameter="0" />
+          <Button Classes="tab" Classes.active="{Binding Sabers.IsNotes}" Content="{x:Static app:L.KindNotes}" Command="{Binding Sabers.SelectKindCommand}" CommandParameter="1" />
+        </StackPanel>
+      </Border>
+      <Grid Grid.Row="1" ColumnDefinitions="400,*">
         <Panel Height="150" Background="Transparent" Margin="0,0,20,0">
           <Border Classes="card" />
           <Rectangle Margin="10" RadiusX="10" RadiusY="10" Stroke="#3A3F58" StrokeThickness="2" StrokeDashArray="5,4" />
           <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
-            <TextBlock Text="{x:Static app:L.SaberDropTitle}" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" />
-            <TextBlock Classes="muted" Text="{x:Static app:L.SaberDropHint}" HorizontalAlignment="Center" />
+            <TextBlock Text="{Binding Sabers.DropTitle}" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" />
+            <TextBlock Classes="muted" Text="{Binding Sabers.DropHint}" HorizontalAlignment="Center" />
             <Button Classes="ghost" Content="{x:Static app:L.Browse}" HorizontalAlignment="Center" Click="BrowseSabers_Click" />
           </StackPanel>
         </Panel>
@@ -220,14 +226,14 @@
         </Border>
       </Grid>
 
-      <Border Grid.Row="1" Classes="card" Padding="20" Margin="0,20,0,0">
+      <Border Grid.Row="2" Classes="card" Padding="20" Margin="0,20,0,0">
         <Grid RowDefinitions="Auto,*">
           <Grid ColumnDefinitions="Auto,*,Auto">
             <TextBlock Classes="h2" Text="{Binding Sabers.Header}" VerticalAlignment="Center" />
             <TextBlock Grid.Column="1" Classes="muted" Text="{Binding Sabers.Summary}" Margin="16,0" VerticalAlignment="Center" />
             <Button Grid.Column="2" Classes="ghost" Content="{x:Static app:L.Refresh}" Command="{Binding Sabers.RefreshAllCommand}" />
           </Grid>
-          <TextBlock Grid.Row="1" Classes="muted" Text="{x:Static app:L.SabersEmpty}" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="520"
+          <TextBlock Grid.Row="1" Classes="muted" Text="{Binding Sabers.EmptyText}" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="520"
                      HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding Sabers.IsEmpty}" />
           <ScrollViewer Grid.Row="1" Margin="0,14,0,0" IsVisible="{Binding !Sabers.IsEmpty}">
             <ItemsControl ItemsSource="{Binding Sabers.Cards}">
@@ -239,8 +245,8 @@
                   <Border Background="{StaticResource PanelHi}" CornerRadius="10" Padding="14,10">
                     <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
                       <Panel Width="54" Height="54" VerticalAlignment="Center">
-                        <Border Background="#B068FF" CornerRadius="6" Width="54" Height="24" VerticalAlignment="Center" IsVisible="{Binding !HasCover}">
-                          <TextBlock Text="SABER" FontSize="10" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <Border Background="{Binding BadgeBrush}" CornerRadius="6" Width="54" Height="24" VerticalAlignment="Center" IsVisible="{Binding !HasCover}">
+                          <TextBlock Text="{Binding Badge}" FontSize="10" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <Border CornerRadius="8" ClipToBounds="True" IsVisible="{Binding HasCover}">
                           <Image Source="{Binding Cover}" Stretch="UniformToFill" />
@@ -266,7 +272,7 @@
         </Grid>
       </Border>
 
-      <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,14,0,0">
+      <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,14,0,0">
         <TextBlock Classes="muted" Text="{Binding Sabers.Status}" TextWrapping="Wrap" VerticalAlignment="Center" />
         <Button Grid.Column="1" Classes="primary" Margin="20,0,0,0" Content="{x:Static app:L.Convert}" Command="{Binding Sabers.ConvertCommand}" />
       </Grid>
@@ -307,7 +313,7 @@
         <Grid RowDefinitions="Auto,*,Auto">
           <StackPanel Spacing="6">
             <TextBlock Text="{x:Static app:L.SystemCheck}" FontSize="20" FontWeight="Bold" />
-            <TextBlock Classes="muted" Text="{x:Static app:L.SystemIntro}" TextWrapping="Wrap" FontSize="13" />
+            <TextBlock Classes="muted" Text="{Binding SystemIntro}" TextWrapping="Wrap" FontSize="13" />
           </StackPanel>
 
           <ScrollViewer Grid.Row="1" Margin="0,16,0,0">
@@ -351,7 +357,7 @@
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
 
-              <Expander Header="{x:Static app:L.WhichUnity}" Margin="0,8,0,0" HorizontalAlignment="Stretch">
+              <Expander Header="{x:Static app:L.WhichUnity}" Margin="0,8,0,0" HorizontalAlignment="Stretch" IsVisible="{Binding IsAvatarsTab}">
                 <StackPanel>
                   <Grid ColumnDefinitions="140,110,120,110,*" Margin="0,0,0,6">
                     <TextBlock Text="{x:Static app:L.ColGame}" FontSize="11" Classes="muted" />

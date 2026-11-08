@@ -38,6 +38,8 @@ public sealed class Settings
     public bool AutoInstall { get; set; } = true;
     public string? Language { get; set; }
     public string? QuestOutputDir { get; set; }
+    public int LastTab { get; set; }
+    public int LastQuestKind { get; set; }
 
     public static Settings Load()
     {

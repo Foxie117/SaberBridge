@@ -21,6 +21,7 @@ public partial class MainViewModel : ObservableObject, IConversionListener
         _autoInstall = _settings.AutoInstall;
         SystemCheck = new SystemCheckViewModel(this);
         Sabers = new SabersViewModel(_settings);
+        _tab = _settings.LastTab == 1 ? 1 : 0;
         RefreshEnvironment();
         ShowSystemCheck = SystemCheck.Blocked;
     }
@@ -28,20 +29,32 @@ public partial class MainViewModel : ObservableObject, IConversionListener
     public SystemCheckViewModel SystemCheck { get; }
     public SabersViewModel Sabers { get; }
 
-    // 0 = PC avatars, 1 = Quest sabers
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(IsAvatarsTab), nameof(IsSabersTab))] private int _tab;
+    // 0 = PC (avatars), 1 = Quest (sabers and notes); each tab has its own requirements in the system check
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(IsAvatarsTab), nameof(IsQuestTab), nameof(UnityReady), nameof(SystemIntro))] private int _tab;
     public bool IsAvatarsTab => Tab == 0;
-    public bool IsSabersTab => Tab == 1;
+    public bool IsQuestTab => Tab == 1;
+    public string SystemIntro => IsQuestTab ? L.SystemIntroQuest : L.SystemIntro;
+
+    /// <summary>The header's Unity dot: the PC tab needs the Windows module, the Quest tab the Android module.</summary>
+    public bool UnityReady => IsQuestTab ? UnityPath != null && UnityLocator.HasAndroid(UnityPath) : UnityOk;
+
+    partial void OnTabChanged(int value)
+    {
+        _settings.LastTab = value;
+        _settings.Save();
+        if (IsQuestTab)
+        {
+            Sabers.RefreshAllCommand.Execute(null);
+            Sabers.RefreshUnity();
+        }
+
+        SystemCheck.Refresh();
+    }
 
     [RelayCommand]
     private void SelectTab(string index)
     {
         Tab = int.Parse(index);
-        if (IsSabersTab)
-        {
-            Sabers.RefreshAllCommand.Execute(null);
-            Sabers.RefreshUnity();
-        }
     }
     public ObservableCollection<QueueItem> Queue { get; } = new();
     public ObservableCollection<GameInstall> Games { get; } = new();
@@ -63,9 +76,9 @@ public partial class MainViewModel : ObservableObject, IConversionListener
     public Func<Task<string?>>? PickFolder { get; set; }
 
     [ObservableProperty] private GameInstall? _selectedGame;
-    [ObservableProperty] private string? _unityPath;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(UnityReady))] private string? _unityPath;
     [ObservableProperty] private string _unityText = "";
-    [ObservableProperty] private bool _unityOk;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(UnityReady))] private bool _unityOk;
     [ObservableProperty] private bool _gameOk;
     [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(ConvertCommand), nameof(PreviewAllCommand))] private bool _isBusy;
     [ObservableProperty] private double _progress;
@@ -157,15 +170,15 @@ public partial class MainViewModel : ObservableObject, IConversionListener
         {
             List<InputJob> jobs = await Task.Run(() => InputScanner.Scan(paths.ToList()));
 
-            // sabers go to the Quest tab; if that is all that was dropped, show it
-            List<InputJob> sabers = jobs.Where(j => j.Kind == JobKind.Saber).ToList();
-            if (sabers.Count > 0)
+            // sabers and notes go to the Quest tab; if that is all that was dropped, show it
+            List<InputJob> quest = jobs.Where(j => j.Kind is JobKind.Saber or JobKind.Note).ToList();
+            if (quest.Count > 0)
             {
-                Sabers.AddFiles(sabers);
-                if (sabers.Count == jobs.Count) Tab = 1;
+                Sabers.AddFiles(quest);
+                if (quest.Count == jobs.Count) Tab = 1;
             }
 
-            foreach (InputJob job in jobs.Where(j => j.Kind != JobKind.Saber))
+            foreach (InputJob job in jobs.Where(j => j.Kind is not (JobKind.Saber or JobKind.Note)))
             {
                 if (Queue.Any(q => q.Job.File == job.File)) continue;
                 Queue.Add(new QueueItem(job));

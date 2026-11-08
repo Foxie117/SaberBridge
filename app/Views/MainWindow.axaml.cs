@@ -90,7 +90,7 @@ public partial class MainWindow : Window
         {
             AllowMultiple = true,
             Title = L.Browse,
-            FileTypeFilter = new[] { new FilePickerFileType("Sabers") { Patterns = new[] { "*.saber", "*.zip" } }, FilePickerFileTypes.All },
+            FileTypeFilter = new[] { new FilePickerFileType(Vm.Sabers.IsNotes ? "Notes" : "Sabers") { Patterns = new[] { Vm.Sabers.FilePattern, "*.zip" } }, FilePickerFileTypes.All },
         });
         List<string> paths = files.Select(f => f.TryGetLocalPath()).OfType<string>().ToList();
         if (paths.Count > 0) await Vm.AddPathsAsync(paths);

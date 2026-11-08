@@ -20,6 +20,8 @@ public partial class SaberCard : ObservableObject
     public SaberEntry Entry { get; }
     public string Name => Entry.Name;
     public string SourcePath => Entry.SourcePath;
+    public string Badge => Entry.Kind == QuestKind.Note ? "NOTES" : "SABER";
+    public IBrush BadgeBrush => Brush.Parse(Entry.Kind == QuestKind.Note ? "#18A999" : "#B068FF");
 
     [ObservableProperty] private string _statusText = "";
     [ObservableProperty] private IBrush _statusBrush = Brushes.Gray;
@@ -82,7 +84,10 @@ public partial class SaberCard : ObservableObject
     }
 }
 
-/// <summary>The Quest tab: PC .saber files in, Quest .whacker files out, with their state kept between runs.</summary>
+/// <summary>
+/// The Quest tab: PC sabers (.saber -> .whacker) and notes (.bloq -> .cyoob), with their state kept between runs.
+/// The tab shows one kind at a time; Convert converts the pending entries of that kind.
+/// </summary>
 public partial class SabersViewModel : ObservableObject, IDisposable
 {
     private readonly Settings _settings;
@@ -92,17 +97,54 @@ public partial class SabersViewModel : ObservableObject, IDisposable
     public SabersViewModel(Settings settings)
     {
         _settings = settings;
-        foreach (SaberEntry e in _library.Entries.OrderByDescending(e => e.AddedAt)) Cards.Add(new SaberCard(e));
+        _kind = settings.LastQuestKind == 1 ? QuestKind.Note : QuestKind.Saber;
+        foreach (SaberEntry e in _library.Entries.OrderByDescending(e => e.AddedAt)) _all.Add(new SaberCard(e));
+        Filter();
         WatchOutput();
         UpdateCounters();
         RefreshUnity();
     }
 
+    private readonly List<SaberCard> _all = new();
+
+    /// <summary>The entries of the kind the tab shows.</summary>
     public ObservableCollection<SaberCard> Cards { get; } = new();
+
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(IsSabers), nameof(IsNotes), nameof(DropTitle), nameof(DropHint), nameof(EmptyText))]
+    private QuestKind _kind;
+
+    public bool IsSabers => Kind == QuestKind.Saber;
+    public bool IsNotes => Kind == QuestKind.Note;
+    public string DropTitle => IsNotes ? L.NoteDropTitle : L.SaberDropTitle;
+    public string DropHint => IsNotes ? L.NoteDropHint : L.SaberDropHint;
+    public string EmptyText => IsNotes ? L.NotesEmpty : L.SabersEmpty;
+    public string FilePattern => IsNotes ? "*.bloq" : "*.saber";
+
+    [RelayCommand]
+    private void SelectKind(string kind)
+    {
+        Kind = kind == "1" ? QuestKind.Note : QuestKind.Saber;
+        _settings.LastQuestKind = IsNotes ? 1 : 0;
+        _settings.Save();
+    }
+
+    partial void OnKindChanged(QuestKind value)
+    {
+        Filter();
+        if (!IsBusy) Status = QuestUnity == null ? L.SaberNeedsUnity : L.SaberReady;
+    }
+
+    private void Filter()
+    {
+        Cards.Clear();
+        foreach (SaberCard c in _all.Where(c => c.Entry.Kind == Kind)) Cards.Add(c);
+        UpdateCounters();
+        ConvertCommand.NotifyCanExecuteChanged();
+    }
 
     public string OutputDir => string.IsNullOrWhiteSpace(_settings.QuestOutputDir) ? SaberLibrary.DefaultOutputDir : _settings.QuestOutputDir;
     public bool IsEmpty => Cards.Count == 0;
-    public string Header => Cards.Count == 0 ? L.Sabers : $"{L.Sabers} · {Cards.Count}";
+    public string Header => Cards.Count == 0 ? (IsNotes ? L.Notes : L.Sabers) : $"{(IsNotes ? L.Notes : L.Sabers)} · {Cards.Count}";
 
     [ObservableProperty] private string _summary = "";
     [ObservableProperty] private string _status = "";
@@ -120,7 +162,8 @@ public partial class SabersViewModel : ObservableObject, IDisposable
 
     public void AddFiles(IEnumerable<InputJob> jobs)
     {
-        foreach (InputJob j in jobs.Where(j => j.Kind == JobKind.Saber))
+        QuestKind? last = null;
+        foreach (InputJob j in jobs.Where(j => j.Kind is JobKind.Saber or JobKind.Note))
         {
             string source = j.File;
 
@@ -134,11 +177,13 @@ public partial class SabersViewModel : ObservableObject, IDisposable
             }
 
             SaberEntry entry = _library.Add(source);
-            if (Cards.All(c => c.Entry != entry)) Cards.Insert(0, new SaberCard(entry));
+            if (_all.All(c => c.Entry != entry)) _all.Insert(0, new SaberCard(entry));
+            last = entry.Kind;
         }
 
-        UpdateCounters();
-        ConvertCommand.NotifyCanExecuteChanged();
+        // show the kind that was just added
+        if (last != null && last != Kind) Kind = last.Value;
+        else Filter();
     }
 
     [RelayCommand]
@@ -146,6 +191,7 @@ public partial class SabersViewModel : ObservableObject, IDisposable
     {
         // only forgets the entry; the original .saber and any .whacker stay on disk
         _library.Remove(card.Entry);
+        _all.Remove(card);
         Cards.Remove(card);
         UpdateCounters();
     }
@@ -172,7 +218,7 @@ public partial class SabersViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void RefreshAll()
     {
-        foreach (SaberCard c in Cards) c.Refresh();
+        foreach (SaberCard c in _all) c.Refresh();
         UpdateCounters();
         ConvertCommand.NotifyCanExecuteChanged();
     }
@@ -192,11 +238,12 @@ public partial class SabersViewModel : ObservableObject, IDisposable
             Status = ProjectSetup.IsQuestImported ? L.Phase("unity-start") : L.SaberFirstRun;
             await Task.Run(ProjectSetup.EnsureQuest);
             Directory.CreateDirectory(AppPaths.Temp);
-            string jobs = Path.Combine(AppPaths.Temp, $"sabers-{Guid.NewGuid():N}.txt");
+            string method = IsNotes ? "SaberBridge.BloqToCyoob.Run" : "SaberBridge.SaberToWhacker.Run";
+            string jobs = Path.Combine(AppPaths.Temp, $"quest-{Guid.NewGuid():N}.txt");
             await File.WriteAllLinesAsync(jobs, todo.Select(c => $"{c.Entry.SourcePath}|{OutputDir}"));
 
             int ok = 0, failed = 0;
-            UnityResult r = await UnityRunner.RunAsync(QuestUnity, "SaberBridge.SaberToWhacker.Run", new[] { "-jobsFile", jobs }, line => Dispatcher.UIThread.Post(() =>
+            UnityResult r = await UnityRunner.RunAsync(QuestUnity, method, new[] { "-jobsFile", jobs }, line => Dispatcher.UIThread.Post(() =>
             {
                 // "BEGIN 2/3 name.saber", "OK   name.saber -> C:\...\name.whacker", "FAIL name.saber: reason"
                 if (line.StartsWith("BEGIN ")) Status = L.SaberConverting(line[6..]);
@@ -252,7 +299,9 @@ public partial class SabersViewModel : ObservableObject, IDisposable
         try
         {
             Directory.CreateDirectory(OutputDir);
-            _watcher = new FileSystemWatcher(OutputDir, "*.whacker") { EnableRaisingEvents = true };
+            _watcher = new FileSystemWatcher(OutputDir) { EnableRaisingEvents = true };
+            _watcher.Filters.Add("*.whacker");
+            _watcher.Filters.Add("*.cyoob");
             _watcher.Deleted += (_, _) => Dispatcher.UIThread.Post(RefreshAll);
             _watcher.Created += (_, _) => Dispatcher.UIThread.Post(RefreshAll);
             _watcher.Renamed += (_, _) => Dispatcher.UIThread.Post(RefreshAll);

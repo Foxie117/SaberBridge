@@ -4,12 +4,16 @@ namespace SaberBridge.Core;
 
 public enum SaberState { NotConverted, Converted, OutputMissing }
 
+/// <summary>What a Quest entry is: a saber (.saber -> .whacker) or a note set (.bloq -> .cyoob).</summary>
+public enum QuestKind { Saber, Note }
+
 /// <summary>One PC saber the user added: where the original is and which Quest file was made from it.</summary>
 public sealed class SaberEntry
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; } = "";
     public string SourcePath { get; set; } = "";
+    public QuestKind Kind { get; set; }
     public string? OutputPath { get; set; }
     public DateTime AddedAt { get; set; } = DateTime.Now;
     public DateTime? ConvertedAt { get; set; }
@@ -57,7 +61,8 @@ public sealed class SaberLibrary
         SaberEntry? existing = Entries.FirstOrDefault(e => string.Equals(e.SourcePath, full, StringComparison.OrdinalIgnoreCase));
         if (existing != null) return existing;
 
-        SaberEntry entry = new() { Name = Path.GetFileNameWithoutExtension(full), SourcePath = full };
+        QuestKind kind = Path.GetExtension(full).Equals(".bloq", StringComparison.OrdinalIgnoreCase) ? QuestKind.Note : QuestKind.Saber;
+        SaberEntry entry = new() { Name = Path.GetFileNameWithoutExtension(full), SourcePath = full, Kind = kind };
         Entries.Add(entry);
         Save();
         return entry;

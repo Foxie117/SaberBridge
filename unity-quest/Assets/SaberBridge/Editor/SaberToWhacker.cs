@@ -22,7 +22,7 @@ namespace SaberBridge
     /// </summary>
     public static class SaberToWhacker
     {
-        private const string WorkRoot = "Assets/SaberBridge_Work";
+        internal const string WorkRoot = "Assets/SaberBridge_Work";
         private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
         public static void Run()
@@ -48,7 +48,7 @@ namespace SaberBridge
             }
         }
 
-        private static void Log(string s) => Debug.Log("[SB] " + s);
+        internal static void Log(string s) => Debug.Log("[SB] " + s);
 
         private static string Convert(string saberPath, string outDir)
         {
@@ -227,7 +227,7 @@ namespace SaberBridge
         }
 
         // CustomSabers scripts (and anything else that is not Unity's) cannot exist on the Quest
-        private static void RemoveScripts(GameObject root)
+        internal static void RemoveScripts(GameObject root)
         {
             foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
             {
@@ -242,7 +242,7 @@ namespace SaberBridge
 
         // ---------------------------------------------------------------- packaging
 
-        private static void Build(string prefabPath, string dir, string name, BuildTarget target)
+        internal static void Build(string prefabPath, string dir, string name, BuildTarget target)
         {
             AssetBundleBuild b = new AssetBundleBuild { assetBundleName = name, assetNames = new[] { prefabPath } };
             string tmp = Path.Combine(dir, "build_" + target);
@@ -251,7 +251,7 @@ namespace SaberBridge
             PlayerSettings.stereoRenderingPath = target == BuildTarget.Android ? StereoRenderingPath.SinglePass : StereoRenderingPath.MultiPass;
             Type vr = typeof(Editor).Assembly.GetType("UnityEditorInternal.VR.VREditor");
             System.Reflection.MethodInfo setVr = vr?.GetMethod("SetVREnabledOnTargetGroup", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
-            if (setVr == null) Log("INFO warning: cannot turn on VR for the build, sabers may be invisible on Quest");
+            if (setVr == null) Log("INFO warning: cannot turn on VR for the build, models may be invisible on Quest");
             setVr?.Invoke(null, new object[] { BuildPipeline.GetBuildTargetGroup(target), target == BuildTarget.Android });
             AssetBundleManifest m = BuildPipeline.BuildAssetBundles(tmp, new[] { b }, BuildAssetBundleOptions.None, target);
             if (m == null) throw new Exception("bundle build failed for " + target);
@@ -270,11 +270,11 @@ namespace SaberBridge
             return sb.ToString();
         }
 
-        private static string Esc(string s) => (s ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "");
+        internal static string Esc(string s) => (s ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "");
 
-        private static string NonEmpty(string s, string fallback) => string.IsNullOrWhiteSpace(s) ? fallback : s.Trim();
+        internal static string NonEmpty(string s, string fallback) => string.IsNullOrWhiteSpace(s) ? fallback : s.Trim();
 
-        private static string Safe(string s)
+        internal static string Safe(string s)
         {
             string r = new string(s.Select(c => char.IsLetterOrDigit(c) || c == '-' || c == '_' ? c : '_').ToArray());
             return string.IsNullOrEmpty(r) ? "saber" : r;
@@ -297,7 +297,7 @@ namespace SaberBridge
             return tex;
         }
 
-        private static Texture2D Thumbnail(GameObject root)
+        internal static Texture2D Thumbnail(GameObject root)
         {
             Renderer[] rs = root.GetComponentsInChildren<Renderer>().Where(r => r.enabled && !(r is ParticleSystemRenderer)).ToArray();
             Bounds b = rs.Length > 0 ? rs[0].bounds : new Bounds(Vector3.zero, Vector3.one);

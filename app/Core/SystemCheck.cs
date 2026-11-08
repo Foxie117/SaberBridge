@@ -164,6 +164,7 @@ public static class Downloads
     public const string UnityHubWindows = "https://public-cdn.cloud.unity3d.com/hub/prod/UnityHubSetup-x64.exe";
     public const string UnityHubLinuxDocs = "https://docs.unity3d.com/hub/manual/InstallHub.html#install-hub-linux";
     public const string UnityEditorWindows = $"https://download.unity3d.com/download_unity/{Compatibility.UnityChangeset}/Windows64EditorInstaller/UnitySetup64-{Compatibility.UnityVersion}.exe";
+    public const string UnityAndroidWindows = $"https://download.unity3d.com/download_unity/{Compatibility.UnityChangeset}/TargetSupportInstaller/UnitySetup-Android-Support-for-Editor-{Compatibility.UnityVersion}.exe";
     public const string UnityArchive = "https://unity.com/releases/editor/whats-new/2021.3.16";
     public const string BSManagerReleases = "https://github.com/Zagrios/bs-manager/releases/latest";
     public const string CustomAvatarsPage = "https://github.com/nicoco007/BeatSaberCustomAvatars";

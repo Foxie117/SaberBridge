@@ -10,7 +10,7 @@ public static class L
 
     private static string T(string ru, string en) => Ru ? ru : en;
 
-    public static string Subtitle => T("Конвертер для Beat Saber: аватары для ПК и сейберы для Quest", "Beat Saber converter: PC avatars and Quest sabers");
+    public static string Subtitle => T("Конвертер для Beat Saber: аватары для ПК, сейберы и ноты для Quest", "Beat Saber converter: PC avatars, Quest sabers and notes");
     public static string DropTitle => T("Перетащи модели сюда", "Drop your models here");
     public static string DropHint => T(".vrm  ·  .unitypackage  ·  .pmx  ·  .zip  ·  папки", ".vrm  ·  .unitypackage  ·  .pmx  ·  .zip  ·  folders");
     public static string Browse => T("Выбрать файлы", "Choose files");
@@ -74,25 +74,35 @@ public static class L
     public static string NothingToDo => T("Добавь модели в очередь", "Add some models first");
 
     // ---- tabs and Quest sabers
-    public static string TabPc => T("ПК · аватары", "PC · avatars");
-    public static string TabQuest => T("Quest · сейберы", "Quest · sabers");
-    public static string Sabers => T("Сейберы для Quest", "Quest sabers");
+    public static string TabPc => T("ПК", "PC");
+    public static string TabQuest => T("Quest", "Quest");
+    public static string Sabers => T("Сейберы", "Sabers");
+    public static string Notes => T("Ноты", "Notes");
+    public static string KindSabers => T("Сейберы  ·  .saber → .whacker", "Sabers  ·  .saber → .whacker");
+    public static string KindNotes => T("Ноты  ·  .bloq → .cyoob", "Notes  ·  .bloq → .cyoob");
+    public static string NoteDropTitle => T("Перетащи ноты .bloq сюда", "Drop .bloq files here");
+    public static string NoteDropHint => T(".bloq (ПК, Custom Notes)  →  .cyoob (Quest, Qosmetics)", ".bloq (PC, Custom Notes)  →  .cyoob (Quest, Qosmetics)");
+    public static string NotesEmpty => T("Перетащи сюда ноты с ПК (.bloq) — они появятся в этом списке.", "Drop PC notes (.bloq) here; they will show up in this list.");
+    public static string ChkAndroid => T("Модуль Android для Unity", "Unity Android module");
+    public static string ChkAndroidOk => T("Установлен: Unity может собирать файлы для Quest.", "Installed: Unity can build files for the Quest.");
+    public static string ChkAndroidMissing => T("Нет модуля «Android Build Support»: без него Unity не соберёт файлы для Quest.", "\"Android Build Support\" is missing; Unity needs it to build files for the Quest.");
+    public static string ActInstallAndroid => T("Скачать и установить модуль (≈ 600 МБ)", "Download and install the module (about 600 MB)");
     public static string SaberDropTitle => T("Перетащи сейберы .saber сюда", "Drop .saber files here");
     public static string SaberDropHint => T(".saber (ПК)  →  .whacker (Quest, Qosmetics)", ".saber (PC)  →  .whacker (Quest, Qosmetics)");
     public static string SabersEmpty => T("Перетащи сюда сейберы с ПК (.saber) — они появятся в этом списке.", "Drop PC sabers (.saber) here; they will show up in this list.");
-    public static string QuestFolderHint => T("Сюда кладутся готовые .whacker. Отсюда их ставишь на Quest через Mods Before Friday.", "Finished .whacker files go here. Install them on the Quest with Mods Before Friday.");
+    public static string QuestFolderHint => T("Сюда кладутся готовые .whacker и .cyoob. Отсюда их ставишь на Quest через Mods Before Friday.", "Finished .whacker and .cyoob files go here. Install them on the Quest with Mods Before Friday.");
     public static string QuestFolder => T("Папка для Quest", "Quest folder");
     public static string SaberConverted => T("сконвертирован", "converted");
     public static string SaberNotConverted => T("не сконвертирован", "not converted");
     public static string SaberOutputMissing => T("нет сконвертированного файла", "converted file missing");
     public static string SaberSourceMissing(string path) => T($"Оригинал пропал: {path}", $"Original is gone: {path}");
     public static string SaberSummary(int all, int done, int missing) => T($"Всего {all} · готово {done}" + (missing > 0 ? $" · пропало {missing}" : ""), $"{all} total · {done} done" + (missing > 0 ? $" · {missing} missing" : ""));
-    public static string SaberEngineNote => T("Оригиналы .saber не изменяются и не перемещаются.", "Original .saber files are never changed or moved.");
+    public static string SaberEngineNote => T("Оригиналы не изменяются и не перемещаются.", "Originals are never changed or moved.");
     public static string SaberNeedsUnity => T("Для конвертации нужен модуль Android Build Support для Unity 2021.3.16f1 (Unity Hub → Installs → ⚙ → Add modules). Оригиналы .saber не изменяются.", "Converting needs the Android Build Support module for Unity 2021.3.16f1 (Unity Hub → Installs → ⚙ → Add modules). Original .saber files are never changed.");
-    public static string SaberReady => T("Готово к конвертации. Оригиналы .saber не изменяются и не перемещаются.", "Ready to convert. Original .saber files are never changed or moved.");
+    public static string SaberReady => T("Готово к конвертации. Оригиналы не изменяются и не перемещаются.", "Ready to convert. Originals are never changed or moved.");
     public static string SaberFirstRun => T("Первый запуск: Unity готовит проект для Quest, это несколько минут.", "First run: Unity is preparing the Quest project, this takes a few minutes.");
     public static string SaberConverting(string what) => T($"Конвертирую {what}", $"Converting {what}");
-    public static string SaberFinished(int ok, int failed) => T($"Готово: {ok}" + (failed > 0 ? $", ошибок: {failed}" : "") + ". Файлы .whacker лежат в папке для Quest.", $"Done: {ok}" + (failed > 0 ? $", {failed} failed" : "") + ". The .whacker files are in the Quest folder.");
+    public static string SaberFinished(int ok, int failed) => T($"Готово: {ok}" + (failed > 0 ? $", ошибок: {failed}" : "") + ". Файлы лежат в папке для Quest.", $"Done: {ok}" + (failed > 0 ? $", {failed} failed" : "") + ". The files are in the Quest folder.");
     public static string ShowOriginal => T("Где оригинал", "Show original");
     public static string Forget => T("Убрать из списка", "Remove from list");
     public static string Refresh => T("Обновить", "Refresh");
@@ -161,6 +171,7 @@ public static class L
     public static string SystemOk => T("Всё готово", "All set");
     public static string SystemProblems(int n) => T($"Нужно внимание: {n}", $"Needs attention: {n}");
     public static string SystemIntro => T("Для конвертации нужны Beat Saber с модом Custom Avatars и Unity нужной версии. Unity работает в фоне, открывать его не придётся.", "Converting needs Beat Saber with the Custom Avatars mod and the right Unity version. Unity runs in the background; you never open it.");
+    public static string SystemIntroQuest => T("Для Quest нужен только Unity 2021.3.16f1 с модулем Android: ни Beat Saber, ни BSManager на этом ПК не нужны. Unity работает в фоне, открывать его не придётся.", "For the Quest you only need Unity 2021.3.16f1 with the Android module; Beat Saber and BSManager are not needed on this PC. Unity runs in the background; you never open it.");
     public static string Recheck => T("Проверить снова", "Check again");
     public static string WhichUnity => T("Какая Unity нужна для какой версии", "Which Unity for which version");
     public static string ColGame => T("Beat Saber", "Beat Saber");

@@ -133,14 +133,16 @@ namespace SaberBridge
             }
             else
             {
-                bool transparent = trail || m.renderQueue >= 2500;
+                // the render queue alone is not reliable (opaque metal parts sit in queue 3000 in many sabers);
+                // a material is treated as see-through only when the background actually shows through it
+                bool transparent = trail || (m.renderQueue >= 2500 && SeeThrough(m));
                 c = new Material(Shader.Find(transparent ? "SaberBridge/QuestTrail" : "SaberBridge/QuestSaber")) { name = m.name };
                 Color color = Pick(m, Color.white, "_Color", "_TintColor", "_BaseColor", "_MainColor");
                 c.SetColor("_Color", color);
                 if (m.HasProperty("_EmissionColor") && c.HasProperty("_EmissionColor")) c.SetColor("_EmissionColor", m.GetColor("_EmissionColor"));
                 foreach (string f in new[] { "_Glow", "_Bloom", "_CustomColors", "_Cull" })
                     if (m.HasProperty(f) && c.HasProperty(f)) c.SetFloat(f, m.GetFloat(f));
-                CopyTex(m, c, "_MainTex", "_MainTex", "_BaseMap", "_Tex", "_Texture");
+                CopyTex(m, c, "_MainTex", MainTextureNames);
                 CopyTex(m, c, "_EmissionMap", "_EmissionMap", "_EmissionTex", "_GlowTex");
 
                 // an effect whose look came only from a procedural PC shader would turn into a solid sheet; keep it a faint glow
@@ -149,6 +151,8 @@ namespace SaberBridge
                     color.a *= 0.3f;
                     c.SetColor("_Color", color);
                 }
+
+                if (!transparent) UseMatCap(c, m, m.HasProperty("_CustomColors") && m.GetFloat("_CustomColors") > 0);
                 ReplacedShaders++;
             }
 
@@ -161,11 +165,195 @@ namespace SaberBridge
                 }
             }
 
+            Debug.Log($"[SB] MAT {m.name} | {(m.shader ? m.shader.name : "?")} q{m.renderQueue} -> {c.shader.name}{(c.HasProperty("_UseMatCap") && c.GetFloat("_UseMatCap") > 0 ? " +look" : "")}");
             AssetDatabase.CreateAsset(c, $"{_dir}/mat_{_n++}.mat");
             _copies[m] = c;
+            _sourceOf[c] = m;
             Materials++;
             return c;
         }
+
+        private readonly Dictionary<Material, Material> _sourceOf = new Dictionary<Material, Material>();
+
+        // PC shaders still render in the editor, so their look (shine, reflections, dark or bright parts) is captured
+        // once on a sphere and replayed on the Quest by view direction. With the player's colour the capture is taken
+        // in white and tinted in game; otherwise the material's own colour is part of the capture.
+        private void UseMatCap(Material quest, Material pc, bool playerColour)
+        {
+            Color[] white = Capture(pc, Color.white), black = Capture(pc, Color.black);
+            if (white == null || black == null) return;
+            Color[] tint = new Color[white.Length];
+            float sum = 0;
+            for (int i = 0; i < white.Length; i++)
+            {
+                tint[i] = new Color(Mathf.Max(0, white[i].r - black[i].r), Mathf.Max(0, white[i].g - black[i].g), Mathf.Max(0, white[i].b - black[i].b));
+                sum += white[i].r + white[i].g + white[i].b;
+            }
+
+            // a shader that drew nothing (the background shows inside the sphere) gives no useful capture;
+            // a dark material is fine, it just captures dark
+            Color[] onWhite = Capture(pc, Color.white, Color.white);
+            if (InsideDiff(white, Color.black) < 0.02f && InsideDiff(onWhite, Color.white) < 0.02f) return;
+            quest.SetTexture("_MatCap", SaveCap(tint));
+            quest.SetTexture("_MatCapBase", SaveCap(black));
+            quest.SetFloat("_UseMatCap", 1);
+            quest.SetFloat("_Shade", 0);
+            if (pc.HasProperty("_Color")) quest.SetColor("_Color", pc.GetColor("_Color"));
+        }
+
+        private Texture2D SaveCap(Color[] px)
+        {
+            Texture2D tex = new Texture2D(CapSize, CapSize, TextureFormat.RGB24, false);
+            tex.SetPixels(px);
+            tex.Apply();
+            string path = $"{_dir}/matcap_{_n++}.png";
+            File.WriteAllBytes(path, tex.EncodeToPNG());
+            Object.DestroyImmediate(tex);
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+            TextureImporter imp = (TextureImporter)AssetImporter.GetAtPath(path);
+            imp.wrapMode = TextureWrapMode.Clamp;
+            imp.mipmapEnabled = false;
+            imp.sRGBTexture = false;
+            imp.textureCompression = TextureImporterCompression.Uncompressed;
+            imp.SaveAndReimport();
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+        }
+
+        // where PC shaders keep their colour texture
+        private static readonly string[] MainTextureNames = { "_MainTex", "_BaseMap", "_DiffTex", "_Diffuse", "_Albedo", "_AlbedoTex", "_MainTexture", "_BaseColorMap", "_ColorTex", "_Tex", "_Texture" };
+
+        private const int CapSize = 128;
+        private const int CapLayer = 31;
+
+        // renders the PC material on a sphere (orthographic, so each pixel is one view-space normal)
+        // average colour distance from a background colour, inside the sphere only
+        private static float InsideDiff(Color[] px, Color bg)
+        {
+            if (px == null) return 0;
+            float diff = 0;
+            int n = 0;
+            for (int y = 0; y < CapSize; y++)
+            for (int x = 0; x < CapSize; x++)
+            {
+                float dx = x - CapSize / 2f + 0.5f, dy = y - CapSize / 2f + 0.5f;
+                if (dx * dx + dy * dy > CapSize * CapSize * 0.2f) continue;
+                Color a = px[y * CapSize + x];
+                diff += Mathf.Abs(a.r - bg.r) + Mathf.Abs(a.g - bg.g) + Mathf.Abs(a.b - bg.b);
+                n++;
+            }
+
+            return n == 0 ? 0 : diff / n;
+        }
+
+        // How much of the background shows through the middle of the sphere (0 = opaque, 1 = invisible). The rim is
+        // left out: many opaque-looking shaders fade their edges.
+        private static bool SeeThrough(Material pc)
+        {
+            Color[] onBlack = Capture(pc, null, Color.black), onWhite = Capture(pc, null, Color.white);
+            if (onBlack == null || onWhite == null) return true;
+            float through = 0;
+            int n = 0;
+            for (int y = 0; y < CapSize; y++)
+            for (int x = 0; x < CapSize; x++)
+            {
+                float dx = x - CapSize / 2f + 0.5f, dy = y - CapSize / 2f + 0.5f;
+                if (dx * dx + dy * dy > CapSize * CapSize * 0.09f) continue;
+                Color a = onBlack[y * CapSize + x], b = onWhite[y * CapSize + x];
+                through += ((b.r - a.r) + (b.g - a.g) + (b.b - a.b)) / 3f;
+                n++;
+            }
+
+            return n == 0 || through / n > 0.25f;
+        }
+
+        private static Color[] Capture(Material pc, Color? color, Color? background = null)
+        {
+            if (pc == null || pc.shader == null || !pc.shader.isSupported) return null;
+            Material probe = new Material(pc);
+            if (color.HasValue && probe.HasProperty("_Color")) probe.SetColor("_Color", color.Value);
+            // the texture is applied by the Quest shader through the mesh's own UVs, so it must not be baked in
+            foreach (string n in MainTextureNames) if (probe.HasProperty(n)) probe.SetTexture(n, null);
+
+            GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            sphere.layer = CapLayer;
+            sphere.GetComponent<Renderer>().sharedMaterial = probe;
+            sphere.transform.position = new Vector3(0, -1000, 0);
+
+            GameObject camGo = new GameObject("MatCapCamera");
+            Camera cam = camGo.AddComponent<Camera>();
+            cam.orthographic = true;
+            cam.orthographicSize = 0.5f;
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = background ?? Color.black;
+            cam.cullingMask = 1 << CapLayer;
+            cam.nearClipPlane = 0.01f;
+            cam.farClipPlane = 10;
+            camGo.transform.position = sphere.transform.position + new Vector3(0, 0, -2);
+
+            GameObject lightGo = new GameObject("MatCapLight");
+            Light light = lightGo.AddComponent<Light>();
+            light.type = LightType.Directional;
+            light.cullingMask = 1 << CapLayer;
+            lightGo.transform.rotation = Quaternion.Euler(35, 25, 0);
+
+            RenderTexture rt = RenderTexture.GetTemporary(CapSize, CapSize, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+            cam.targetTexture = rt;
+            cam.Render();
+            RenderTexture prev = RenderTexture.active;
+            RenderTexture.active = rt;
+            Texture2D tex = new Texture2D(CapSize, CapSize, TextureFormat.RGB24, false);
+            tex.ReadPixels(new Rect(0, 0, CapSize, CapSize), 0, 0);
+            tex.Apply();
+            RenderTexture.active = prev;
+            cam.targetTexture = null;
+            RenderTexture.ReleaseTemporary(rt);
+            Object.DestroyImmediate(camGo);
+            Object.DestroyImmediate(lightGo);
+            Object.DestroyImmediate(sphere);
+            Object.DestroyImmediate(probe);
+            Color[] result = tex.GetPixels();
+            Object.DestroyImmediate(tex);
+            return result;
+        }
+
+        /// <summary>
+        /// Qosmetics tints a material with the player's note colour when its _CustomColors is on. Returns a material
+        /// (made once per source and setting) that has it on or off; Unity's own shaders have no such switch, so a
+        /// material that must be tinted moves to the Quest shader.
+        /// </summary>
+        public Material WithCustomColors(Material m, bool on)
+        {
+            if (m == null) return null;
+            bool has = m.HasProperty("_CustomColors");
+            if (has && (m.GetFloat("_CustomColors") > 0) == on) return m;
+            if (!has && !on) return m;
+            var key = (m, on);
+            if (_variants.TryGetValue(key, out Material done)) return done;
+
+            Material c;
+            Material source = _sourceOf.TryGetValue(m, out Material src) ? src : m;
+            if (has)
+            {
+                c = new Material(m) { name = m.name + (on ? " (cc)" : " (no cc)") };
+            }
+            else
+            {
+                c = new Material(Shader.Find("SaberBridge/QuestSaber")) { name = m.name + " (cc)" };
+                c.SetColor("_Color", Color.white);
+                if (m.HasProperty("_MainTex") && m.GetTexture("_MainTex")) c.SetTexture("_MainTex", m.GetTexture("_MainTex"));
+                c.SetFloat("_Glow", 0);
+                ReplacedShaders++;
+            }
+
+            c.SetFloat("_CustomColors", on ? 1 : 0);
+            if (c.shader.name == "SaberBridge/QuestSaber" && c.renderQueue < 2500 && c.GetFloat("_UseMatCap") < 0.5f) UseMatCap(c, source, on);
+            AssetDatabase.CreateAsset(c, $"{_dir}/mat_{_n++}.mat");
+            _variants[key] = c;
+            Materials++;
+            return c;
+        }
+
+        private readonly Dictionary<(Material, bool), Material> _variants = new Dictionary<(Material, bool), Material>();
 
         private static bool IsBuiltIn(Shader s) => AssetDatabase.GetAssetPath(s).StartsWith("Resources/unity_builtin_extra") || s.name.StartsWith("SaberBridge/");
 
