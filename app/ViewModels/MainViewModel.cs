@@ -22,7 +22,12 @@ public partial class MainViewModel : ObservableObject, IConversionListener
         SystemCheck = new SystemCheckViewModel(this);
         Sabers = new SabersViewModel(_settings);
         Sabers.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(SabersViewModel.Pending)) OnPropertyChanged(nameof(QuestTabTitle)); };
-        Queue.CollectionChanged += (_, _) => OnPropertyChanged(nameof(PcTabTitle));
+        Queue.CollectionChanged += (_, e) =>
+        {
+            foreach (QueueItem q in e.NewItems?.OfType<QueueItem>() ?? Enumerable.Empty<QueueItem>())
+                q.PropertyChanged += (_, pe) => { if (pe.PropertyName == nameof(QueueItem.State)) OnPropertyChanged(nameof(PcTabTitle)); };
+            OnPropertyChanged(nameof(PcTabTitle));
+        };
         _tab = _settings.LastTab == 1 ? 1 : 0;
         RefreshEnvironment();
         ShowSystemCheck = SystemCheck.Blocked;
@@ -100,7 +105,8 @@ public partial class MainViewModel : ObservableObject, IConversionListener
     public bool QueueEmpty => Queue.Count == 0;
 
     // each mode keeps its own queue; the tab buttons show how much waits there
-    public string PcTabTitle => Queue.Count > 0 ? $"{L.TabPc}  ·  {Queue.Count}" : L.TabPc;
+    private int PcPending => Queue.Count(q => q.State is JobState.Waiting or JobState.Working or JobState.Failed);
+    public string PcTabTitle => PcPending > 0 ? $"{L.TabPc}  ·  {PcPending}" : L.TabPc;
     public string QuestTabTitle => Sabers.Pending > 0 ? $"{L.TabQuest}  ·  {Sabers.Pending}" : L.TabQuest;
     public bool LibraryEmpty => Avatars.Count == 0;
     public string LibraryHeader => Avatars.Count == 0 ? L.Library : $"{L.Library} · {Avatars.Count}";
