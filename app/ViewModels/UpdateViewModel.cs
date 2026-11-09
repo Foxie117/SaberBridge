@@ -131,8 +131,26 @@ public partial class UpdateViewModel : ObservableObject
                 Percent = total > 0 ? 100.0 * p.done / total : 0;
                 ProgressText = L.UpdateDownloading(Mb(p.done), Mb(total));
             });
-            await Updates.InstallAsync(_info, progress, CancellationToken.None);
+            // GitHub sometimes answers 502/504 or drops the connection: try again a few times, the download resumes where it stopped
+            for (int attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    await Updates.InstallAsync(_info, progress, CancellationToken.None);
+                    break;
+                }
+                catch (HttpRequestException) when (attempt < 4)
+                {
+                    ProgressText = L.UpdateRetrying(attempt + 1, 4);
+                    await Task.Delay(TimeSpan.FromSeconds(5 * attempt));
+                }
+            }
+
             if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime d) d.Shutdown();
+        }
+        catch (HttpRequestException)
+        {
+            Error = L.UpdateServerBusy;
         }
         catch (Exception e)
         {

@@ -243,6 +243,8 @@ public static class L
     public static string UpdateBusy => T("Обновление станет доступно, когда закончится конвертация или установка Unity.", "Update becomes available once the conversion or the Unity setup is done.");
     public static string UpdateDownloading(string done, string total) => T($"Скачиваю обновление: {done} из {total}", $"Downloading the update: {done} of {total}");
     public static string UpdateBadChecksum => T("Скачанный файл не совпал с контрольной суммой GitHub, он удалён. Попробуй ещё раз.", "The downloaded file does not match GitHub's checksum and was deleted. Try again.");
+    public static string UpdateRetrying(int attempt, int of) => T($"GitHub не ответил, пробую ещё раз ({attempt} из {of})…", $"GitHub didn't answer, trying again ({attempt} of {of})…");
+    public static string UpdateServerBusy => T("GitHub сейчас не отдаёт файл (сервер перегружен или недоступен). Ничего не изменилось — нажми «Обновить» попозже.", "GitHub isn't serving the file right now (busy or unreachable). Nothing was changed; press Update again later.");
     public static string UpdateFailed(string why) => T($"Не получилось обновиться: {why}", $"Update failed: {why}");
     public static string UpdateCheck => T("Проверить обновления", "Check for updates");
     public static string UpdateChecking => T("Проверяю…", "Checking…");
