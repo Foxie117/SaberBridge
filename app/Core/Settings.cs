@@ -49,6 +49,9 @@ public sealed class Settings
     /// <summary>Unity has to run as a hidden normal editor here (no batch-mode license); see UnityRunner.</summary>
     public bool UnityHiddenWindow { get; set; }
 
+    /// <summary>Unity Hub.exe picked by hand, when the app cannot find it by itself.</summary>
+    public string? UnityHubPath { get; set; }
+
     /// <summary>Update check: when GitHub was last asked, the newest version it named, and one the user chose to skip.</summary>
     public DateTime? UpdateCheckedAt { get; set; }
     public string? UpdateLatest { get; set; }

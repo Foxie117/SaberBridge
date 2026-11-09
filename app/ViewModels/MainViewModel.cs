@@ -36,6 +36,7 @@ public partial class MainViewModel : ObservableObject, IConversionListener
         // without Beat Saber on this PC the PC tab has nothing to do, so the app opens on Quest
         bool hasGame = GameLocator.FindAll(_settings.GamePath).Any();
         _tab = _settings.LastTab == 1 || !hasGame ? 1 : 0;
+        Tools.UnityHubOverride = _settings.UnityHubPath;
         Setup = new SetupViewModel(this, _settings);
         UnityRunner.HiddenWindowMode = _settings.UnityHiddenWindow;
         UnityRunner.HiddenWindowModeChanged += on =>
@@ -173,6 +174,9 @@ public partial class MainViewModel : ObservableObject, IConversionListener
         UnityPath = UnityLocator.Find(_settings.UnityPath);
         UnityOk = UnityPath != null && Tools.HasWindowsBuildSupport(UnityPath);
         UnityText = UnityPath == null ? L.UnityMissing : $"Unity {UnityLocator.VersionOf(UnityPath) ?? ""}";
+        // a module installed into the same folder (Android) leaves the path as it was: recount the dot anyway
+        OnPropertyChanged(nameof(UnityReady));
+        Sabers.RefreshUnity();
 
         GameInstall? before = SelectedGame;
         Games.Clear();

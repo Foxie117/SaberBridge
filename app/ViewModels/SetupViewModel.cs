@@ -52,6 +52,20 @@ public partial class SetupViewModel : ObservableObject
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasDetail))] private string? _detail;
     public bool HasDetail => !string.IsNullOrEmpty(Detail);
     [ObservableProperty] private bool _canSkip;
+    [ObservableProperty] private bool _canPickHub;
+
+    /// <summary>Set by the main window: a file picker for Unity Hub.exe.</summary>
+    public Func<Task<string?>>? PickHubFile { get; set; }
+
+    [RelayCommand]
+    private async Task PickHub()
+    {
+        if (PickHubFile == null || await PickHubFile() is not { } exe || !File.Exists(exe)) return;
+        _settings.UnityHubPath = exe;
+        _settings.Save();
+        Tools.UnityHubOverride = exe;
+        StartIfNeeded();
+    }
 
     [RelayCommand]
     private void Skip() => _setup?.SkipNetFx();
@@ -142,6 +156,7 @@ public partial class SetupViewModel : ObservableObject
         Error = s.Error;
         Detail = s.Detail;
         CanSkip = s.CanSkip;
+        CanPickHub = s.CanPickHub;
         PercentKnown = s.Percent != null;
         Percent = s.Percent ?? 0;
         OnPropertyChanged(nameof(ShowAllow));

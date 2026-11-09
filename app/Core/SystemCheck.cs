@@ -74,17 +74,136 @@ public static class Compatibility
 
 public static class Tools
 {
+    /// <summary>Set from the settings when the user pointed at Unity Hub by hand.</summary>
+    public static string? UnityHubOverride { get; set; }
+
+    private static string? _hubFound;
+
+    /// <summary>
+    /// Unity Hub, wherever it is: the folder the user picked, the usual places, Windows' list of installed programs,
+    /// a running Hub, or its Start menu shortcut. Hub's silent installer reuses the folder of an earlier install, so
+    /// the usual places alone are not enough (a tester's Hub was installed and running, and the app kept reinstalling it).
+    /// </summary>
     public static string? UnityHub()
     {
+        if (UnityHubOverride is { } chosen && File.Exists(chosen)) return chosen;
+        if (_hubFound != null && File.Exists(_hubFound)) return _hubFound;
+
         string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        string[] candidates = OperatingSystem.IsWindows()
-            ? new[]
+        if (!OperatingSystem.IsWindows())
+            return new[] { "/usr/bin/unityhub", "/opt/unityhub/unityhub", Path.Combine(home, "Applications", "Unity Hub.AppImage"), Path.Combine(home, "Applications", "UnityHub.AppImage") }
+                .FirstOrDefault(File.Exists);
+
+        string[] usual =
+        {
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Unity Hub", "Unity Hub.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Unity Hub", "Unity Hub.exe"),
+        };
+        _hubFound = usual.FirstOrDefault(File.Exists) ?? HubFromRegistry() ?? HubFromProcess() ?? HubFromShortcut();
+        return _hubFound;
+    }
+
+    // the uninstall entry Hub's installer writes: InstallLocation, else the folder of its icon or uninstaller
+    private static string? HubFromRegistry()
+    {
+        if (!OperatingSystem.IsWindows()) return null;
+        const string uninstall = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall";
+        foreach (Microsoft.Win32.RegistryKey hive in new[] { Microsoft.Win32.Registry.LocalMachine, Microsoft.Win32.Registry.CurrentUser })
+        {
+            foreach (Microsoft.Win32.RegistryView view in new[] { Microsoft.Win32.RegistryView.Registry64, Microsoft.Win32.RegistryView.Registry32 })
             {
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Unity Hub", "Unity Hub.exe"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Unity Hub", "Unity Hub.exe"),
+                try
+                {
+                    using Microsoft.Win32.RegistryKey baseKey = Microsoft.Win32.RegistryKey.OpenBaseKey(hive == Microsoft.Win32.Registry.LocalMachine ? Microsoft.Win32.RegistryHive.LocalMachine : Microsoft.Win32.RegistryHive.CurrentUser, view);
+                    using Microsoft.Win32.RegistryKey? list = baseKey.OpenSubKey(uninstall);
+                    if (list == null) continue;
+                    foreach (string name in list.GetSubKeyNames())
+                    {
+                        using Microsoft.Win32.RegistryKey? app = list.OpenSubKey(name);
+                        if (app?.GetValue("DisplayName") is not string display || !display.StartsWith("Unity Hub", StringComparison.OrdinalIgnoreCase)) continue;
+                        foreach (string? folder in new[]
+                                 {
+                                     app.GetValue("InstallLocation") as string,
+                                     Path.GetDirectoryName(Unquote(app.GetValue("DisplayIcon") as string)),
+                                     Path.GetDirectoryName(Unquote(app.GetValue("UninstallString") as string)),
+                                 })
+                        {
+                            if (string.IsNullOrWhiteSpace(folder)) continue;
+                            string exe = Path.Combine(folder.Trim('"'), "Unity Hub.exe");
+                            if (File.Exists(exe)) return exe;
+                        }
+                    }
+                }
+                catch (Exception)
+                {
+                    // a key we may not read: try the next one
+                }
             }
-            : new[] { "/usr/bin/unityhub", "/opt/unityhub/unityhub", Path.Combine(home, "Applications", "Unity Hub.AppImage"), Path.Combine(home, "Applications", "UnityHub.AppImage") };
-        return candidates.FirstOrDefault(File.Exists);
+        }
+
+        return null;
+    }
+
+    // "C:\x\Unity Hub.exe",0  or  "C:\x\Uninstall Unity Hub.exe" /currentuser  ->  C:\x\file.exe
+    private static string? Unquote(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        value = value.Trim();
+        if (value.StartsWith('"')) return value.IndexOf('"', 1) is int end and > 0 ? value[1..end] : value.Trim('"');
+        int exe = value.IndexOf(".exe", StringComparison.OrdinalIgnoreCase);
+        return exe > 0 ? value[..(exe + 4)] : value.Split(',')[0];
+    }
+
+    private static string? HubFromProcess()
+    {
+        foreach (Process p in Process.GetProcessesByName("Unity Hub"))
+        {
+            using (p)
+            {
+                try
+                {
+                    if (p.MainModule?.FileName is { } exe && File.Exists(exe)) return exe;
+                }
+                catch (Exception)
+                {
+                    // another user's process: no access
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static string? HubFromShortcut()
+    {
+        if (!OperatingSystem.IsWindows()) return null;
+        string[] menus =
+        {
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonStartMenu), "Programs"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.StartMenu), "Programs"),
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory),
+            Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+        };
+        try
+        {
+            Type? shellType = Type.GetTypeFromProgID("WScript.Shell");
+            if (shellType == null) return null;
+            dynamic shell = Activator.CreateInstance(shellType)!;
+            foreach (string menu in menus.Where(Directory.Exists))
+            {
+                foreach (string lnk in Directory.EnumerateFiles(menu, "Unity Hub*.lnk", SearchOption.AllDirectories))
+                {
+                    string target = shell.CreateShortcut(lnk).TargetPath;
+                    if (target.EndsWith("Unity Hub.exe", StringComparison.OrdinalIgnoreCase) && File.Exists(target)) return target;
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // no Windows Script Host: nothing more to try
+        }
+
+        return null;
     }
 
     public static string? BSManager()

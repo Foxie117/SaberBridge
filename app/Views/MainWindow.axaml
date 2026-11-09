@@ -47,6 +47,7 @@
             <Button Classes="ghost" Content="{x:Static app:L.ActSkip}" Command="{Binding Setup.SkipCommand}" IsVisible="{Binding Setup.CanSkip}" />
             <Button Classes="primary" Content="{x:Static app:L.ActAllow}" Command="{Binding Setup.AllowCommand}" IsVisible="{Binding Setup.ShowAllow}" />
             <Button Classes="primary" Content="{x:Static app:L.ActSignIn}" Command="{Binding Setup.OpenHubCommand}" IsVisible="{Binding Setup.ShowHub}" />
+            <Button Classes="primary" Content="{x:Static app:L.ActPickHub}" Command="{Binding Setup.PickHubCommand}" IsVisible="{Binding Setup.CanPickHub}" />
             <Button Classes="primary" Content="{x:Static app:L.ActRetry}" Command="{Binding Setup.RetryCommand}" IsVisible="{Binding Setup.ShowRetry}" />
             <Button Classes="ghost" Content="{x:Static app:L.ActDetails}" Command="{Binding Setup.OpenGuideCommand}" />
             <Button Classes="ghost" Content="{x:Static app:L.ActLog}" Command="{Binding Setup.OpenLogCommand}" IsVisible="{Binding Setup.IsError}" />

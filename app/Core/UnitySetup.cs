@@ -11,6 +11,9 @@ public sealed record SetupStatus(SetupStep Step, string Text, double? Percent = 
 {
     /// <summary>A step the user may skip (only .NET Framework 3.5, which Unity does not need to work).</summary>
     public bool CanSkip { get; init; }
+
+    /// <summary>Unity Hub's installer reported success but Hub is nowhere to be found: let the user point at it.</summary>
+    public bool CanPickHub { get; init; }
 }
 
 /// <summary>Bytes per second over the last few seconds, and the time left at that pace.</summary>
@@ -77,8 +80,15 @@ public sealed class UnitySetup
         bool editor = unity == null;
         // a .whacker / .cyoob needs the Android module, and a later switch to the Quest tab should not cost a second prompt
         bool android = editor || !UnityLocator.HasAndroid(unity!);
-        return new Missing(Tools.UnityHub() == null, editor, android, OperatingSystem.IsWindows() && !VcRedistInstalled());
+        return new Missing(HubNeeded, editor, android, OperatingSystem.IsWindows() && !VcRedistInstalled());
     }
+
+    /// <summary>Unity Hub only serves the sign-in for the license; with a license on the machine it is not needed.</summary>
+    private static bool HubNeeded => Tools.UnityHub() == null && !Tools.UnityLicenseFound();
+
+    // Hub's installer said "done" but Hub was not found afterwards: installing it again would only loop (it reuses an
+    // old folder we cannot see), so the next runs ask the user where it is instead. Kept for the app's lifetime.
+    private static bool _hubInstalledButNotFound;
 
     /// <summary>Runs every step that is still needed. Returns true when Unity is ready to convert.</summary>
     public async Task<bool> RunAsync(CancellationToken ct)
@@ -93,7 +103,13 @@ public sealed class UnitySetup
 
         Report(new SetupStatus(SetupStep.Checking, L.SetupChecking));
         Missing need = Detect();
-        Log($"missing: {need}");
+        if (need.Hub && _hubInstalledButNotFound)
+        {
+            Log("hub: installed earlier in this session but still not found; not installing it again");
+            need = need with { Hub = false };
+        }
+
+        Log($"missing: {need}; hub at {Tools.UnityHub() ?? "?"}; license {(Tools.UnityLicenseFound() ? "found" : "none")}");
 
         if (need.Any)
         {
@@ -101,8 +117,10 @@ public sealed class UnitySetup
 
             List<(string name, string file, string args)> installers = await DownloadAsync(need, ct);
             if (!await InstallAsync(installers, need, ct)) return false;
-            if (!Verify()) return false;
+            if (need.Hub && HubNeeded) _hubInstalledButNotFound = true;
         }
+
+        if (!Verify()) return false;
 
         if (!await LicenseAsync(ct)) return false;
         if (!await PrepareAsync(ct)) return false;
@@ -356,6 +374,8 @@ public sealed class UnitySetup
         TryDelete(_netFxSkip);
         sb.AppendLine("$ErrorActionPreference = 'Continue'");
         sb.AppendLine($"$out = '{Esc(resultFile)}'");
+        // the first line proves the elevated script ran at all (an empty result file means it never started)
+        sb.AppendLine("Add-Content -LiteralPath $out 'started'");
         sb.AppendLine($"$fx = '{Esc(_netFxStatus)}'");
         sb.AppendLine($"$skip = '{Esc(_netFxSkip)}'");
         // While an installer runs: if it started DISM (Unity's installer turns on .NET Framework 3.5 that way, which
@@ -407,6 +427,7 @@ public sealed class UnitySetup
             }
 
             if (p == null) throw new SetupException("could not start the installer");
+            int exitCode = 0;
             DateTime started = DateTime.Now;
             // the installers report nothing, so progress is what has landed in the editor's folder so far
             string editorDir = Plan!.EditorDir;
@@ -446,15 +467,24 @@ public sealed class UnitySetup
                         : new SetupStatus(SetupStep.Installing, L.SetupInstallingName(name, (int)t.TotalMinutes, t.Seconds)));
                     await Task.Delay(1000, ct);
                 }
+
+                try { exitCode = p.ExitCode; } catch (Exception) { exitCode = -1; }
             }
 
             counting.Cancel();
+            Log($"installer script exited with {exitCode}");
 
             break;
         }
 
         string[] results = File.Exists(resultFile) ? await File.ReadAllLinesAsync(resultFile, ct) : Array.Empty<string>();
         Log("installer results: " + string.Join("; ", results));
+        if (!results.Contains("started"))
+        {
+            // PowerShell never got to its first line: blocked by an antivirus or a policy, or closed right away
+            Report(new SetupStatus(SetupStep.Failed, L.SetupTitleFailed, null, L.SetupScriptBlocked));
+            return false;
+        }
         foreach ((string name, _, _) in installers)
         {
             string? line = results.FirstOrDefault(r => r.StartsWith(name + "="));
@@ -563,11 +593,11 @@ public sealed class UnitySetup
         string? problem = unity == null ? L.SetupNoEditor(EditorTarget)
             : !Tools.HasWindowsBuildSupport(unity) ? L.SetupNoModule("Windows")
             : !UnityLocator.HasAndroid(unity) ? L.SetupNoModule("Android")
-            : Tools.UnityHub() == null ? L.SetupNoHub
+            : HubNeeded ? (_hubInstalledButNotFound ? L.SetupHubNotFound : L.SetupNoHub)
             : null;
-        Log($"verify: unity={unity} problem={problem ?? "none"}");
+        Log($"verify: unity={unity} hub={Tools.UnityHub() ?? "none"} problem={problem ?? "none"}");
         if (problem == null) return true;
-        Report(new SetupStatus(SetupStep.Failed, L.SetupTitleFailed, null, problem));
+        Report(new SetupStatus(SetupStep.Failed, L.SetupTitleFailed, null, problem) { CanPickHub = HubNeeded });
         return false;
     }
 
