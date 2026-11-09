@@ -205,14 +205,17 @@ public static class Downloads
     /// cut off halfway resumes from its ".part" file, so a flaky network that drops long connections still gets there.
     /// With <paramref name="signer"/>, a Windows file must carry a valid signature from that publisher.
     /// </summary>
-    public static async Task<string> FetchAsync(string url, IProgress<(long done, long? total)> progress, CancellationToken ct, string? signer = null)
+    public static async Task<string> FetchAsync(string url, IProgress<(long done, long? total)> progress, CancellationToken ct, string? signer = null, string? folder = null, string? saveAs = null, long expectedLength = 0)
     {
-        string dir = Path.Combine(AppPaths.Temp, "downloads");
+        string dir = folder ?? Path.Combine(AppPaths.Temp, "downloads");
         Directory.CreateDirectory(dir);
-        string file = Path.Combine(dir, Path.GetFileName(new Uri(url).LocalPath));
+        string file = Path.Combine(dir, saveAs ?? Path.GetFileName(new Uri(url).LocalPath));
         string part = file + ".part";
 
         long? total = await LengthAsync(url, ct);
+        // a mirror must serve the very same file, or a resumed ".part" would mix two files
+        if (expectedLength > 0 && total != null && total != expectedLength)
+            throw new HttpRequestException($"{new Uri(url).Host} has a different file ({total} bytes, expected {expectedLength})");
         bool done = File.Exists(file) && total != null && new FileInfo(file).Length == total;
         if (!done)
         {
@@ -231,7 +234,8 @@ public static class Downloads
     }
 
     // the size, but only when the server can send pieces of the file
-    private static async Task<long?> LengthAsync(string url, CancellationToken ct)
+    // throwOnNetwork: a network failure is an error to retry, not "this server sends no size"
+    public static async Task<long?> LengthAsync(string url, CancellationToken ct, bool throwOnNetwork = false)
     {
         try
         {
@@ -248,7 +252,7 @@ public static class Downloads
 
             return null;
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException) when (!throwOnNetwork)
         {
             return null;
         }

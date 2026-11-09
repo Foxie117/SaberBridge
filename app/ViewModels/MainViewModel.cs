@@ -28,10 +28,28 @@ public partial class MainViewModel : ObservableObject, IConversionListener
                 q.PropertyChanged += (_, pe) => { if (pe.PropertyName == nameof(QueueItem.State)) OnPropertyChanged(nameof(PcTabTitle)); };
             OnPropertyChanged(nameof(PcTabTitle));
         };
-        _tab = _settings.LastTab == 1 ? 1 : 0;
+        // without Beat Saber on this PC the PC tab has nothing to do, so the app opens on Quest
+        bool hasGame = GameLocator.FindAll(_settings.GamePath).Any();
+        _tab = _settings.LastTab == 1 || !hasGame ? 1 : 0;
+        Setup = new SetupViewModel(this, _settings);
+        UnityRunner.HiddenWindowMode = _settings.UnityHiddenWindow;
+        UnityRunner.HiddenWindowModeChanged += on =>
+        {
+            _settings.UnityHiddenWindow = on;
+            _settings.Save();
+        };
         RefreshEnvironment();
-        ShowSystemCheck = SystemCheck.Blocked;
+        // Unity gets set up by itself in the background; the system check opens only for what that cannot fix
+        Setup.StartIfNeeded();
+        if (Setup.IsVisible) Status = Sabers.Status = L.SetupWaitStatus;
+        ShowSystemCheck = NeedsSystemCheck;
     }
+
+    // The system check opens by itself only when the open tab has something to convert and lacks what it needs;
+    // the header chip ("Needs attention") opens it any time.
+    private bool NeedsSystemCheck => SystemCheck.Blocked && !Setup.IsVisible && (IsQuestTab ? Sabers.Cards.Count > 0 : Queue.Count > 0);
+
+    public SetupViewModel Setup { get; }
 
     public SystemCheckViewModel SystemCheck { get; }
     public SabersViewModel Sabers { get; }
@@ -174,7 +192,8 @@ public partial class MainViewModel : ObservableObject, IConversionListener
 
     // ---------------------------------------------------------------- queue
 
-    public async Task AddPathsAsync(IEnumerable<string> paths)
+    /// <param name="openTheirTab">files the app was started with: open the tab they belong to when they are all one kind</param>
+    public async Task AddPathsAsync(IEnumerable<string> paths, bool openTheirTab = false)
     {
         string before = Status;
         Status = L.Scanning;
@@ -195,6 +214,8 @@ public partial class MainViewModel : ObservableObject, IConversionListener
                 pc++;
             }
 
+            if (openTheirTab && (quest.Count > 0) != (pc > 0)) Tab = quest.Count > 0 ? 1 : 0;
+
             int other = IsQuestTab ? pc : quest.Count;
             if (other > 0)
             {
@@ -211,6 +232,7 @@ public partial class MainViewModel : ObservableObject, IConversionListener
         Status = before;
         OnPropertyChanged(nameof(QueueEmpty));
         ConvertCommand.NotifyCanExecuteChanged();
+        if (NeedsSystemCheck) ShowSystemCheck = true;
     }
 
     [RelayCommand]
@@ -233,7 +255,7 @@ public partial class MainViewModel : ObservableObject, IConversionListener
 
     // ---------------------------------------------------------------- conversion
 
-    private bool CanConvert() => !IsBusy && !SystemCheck.Blocked && UnityOk && GameOk && Queue.Any(q => q.State is JobState.Waiting or JobState.Failed);
+    private bool CanConvert() => !IsBusy && !SetupViewModel.Busy && !SystemCheck.Blocked && UnityOk && GameOk && Queue.Any(q => q.State is JobState.Waiting or JobState.Failed);
 
     [RelayCommand(CanExecute = nameof(CanConvert))]
     private async Task ConvertAsync()

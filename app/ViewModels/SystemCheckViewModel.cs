@@ -259,30 +259,12 @@ public partial class SystemCheckViewModel : ObservableObject
         return Task.CompletedTask;
     }
 
-    // Everything Unity needs, downloaded (resumable, signature checked) and installed silently behind one admin
-    // prompt: Unity Hub when missing (needed once to sign in for the free license), the editor into the folder Hub
-    // scans, and on the Quest tab the Android module. Afterwards Hub is opened if no license is found yet.
-    private async Task InstallUnityDirect(CheckItem item)
+    // Everything Unity needs is handled by the automatic setup (download, one admin prompt, checks, license, first import)
+    private Task InstallUnityDirect(CheckItem item)
     {
-        bool quest = _main.IsQuestTab;
-        string target = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Unity", "Hub", "Editor", Compatibility.UnityVersion);
-        List<(string file, string args)> run = new();
-        if (Tools.UnityHub() == null)
-            run.Add((await Downloads.FetchAsync(Downloads.UnityHubWindows, item.DownloadProgress(), CancellationToken.None, Downloads.UnityPublisher), "/S"));
-        run.Add((await Downloads.FetchAsync(Downloads.UnityEditorWindows, item.DownloadProgress(), CancellationToken.None, Downloads.UnityPublisher), $"/S /D={target}"));
-        if (quest)
-            run.Add((await Downloads.FetchAsync(Downloads.UnityAndroidWindows, item.DownloadProgress(), CancellationToken.None, Downloads.UnityPublisher), $"/S /D={target}"));
-
-        item.ProgressText = L.Installing;
-        item.ProgressKnown = false;
-        if (!await Downloads.RunInstallersElevatedAsync(run))
-        {
-            item.ProgressText = L.AdminDeclined;
-            return;
-        }
-
-        if (!Tools.UnityLicenseFound() && Tools.UnityHub() != null) await WaitForLicense(item);
-        _main.RefreshEnvironment();
+        _main.ShowSystemCheck = false;
+        _main.Setup.StartIfNeeded();
+        return Task.CompletedTask;
     }
 
     // Unity's free Personal license is tied to a Unity account, so signing in is the one step left to the user: Unity

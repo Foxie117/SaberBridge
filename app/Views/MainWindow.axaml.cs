@@ -13,6 +13,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        WindowFit.Attach(this);
         DropZone.AddHandler(DragDrop.DragOverEvent, OnDragOver);
         DropZone.AddHandler(DragDrop.DragLeaveEvent, (_, _) => Highlight(false));
         DropZone.AddHandler(DragDrop.DropEvent, OnDrop);
@@ -34,10 +35,23 @@ public partial class MainWindow : Window
             vm.PickFolder = PickFolderAsync;
             vm.ScrollLibraryToTop = () => LibraryScroll.Offset = default;
             vm.OpenPreviewWindow = card => new PreviewWindow { DataContext = new PreviewViewModel(vm, card) }.Show(this);
+            vm.Setup.OpenGuideWindow = () =>
+            {
+                if (_setupWindow is { IsVisible: true })
+                {
+                    _setupWindow.Activate();
+                    return;
+                }
+
+                _setupWindow = new SetupWindow { DataContext = vm.Setup };
+                _setupWindow.Show(this);
+            };
+            vm.Setup.CloseGuideWindow = () => _setupWindow?.Close();
         };
     }
 
     private MainViewModel Vm => (MainViewModel)DataContext!;
+    private SetupWindow? _setupWindow;
 
     private void Highlight(bool on)
     {

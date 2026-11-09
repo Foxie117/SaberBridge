@@ -30,7 +30,7 @@ public partial class App : Application
                 {
                     foreach (string a in avatars) await vm.OpenAvatarFileAsync(a);
                     if (files.Count == 0) return;
-                    await vm.AddPathsAsync(files);
+                    await vm.AddPathsAsync(files, openTheirTab: true);
                     if (args.Contains("--convert") && vm.ConvertCommand.CanExecute(null)) await vm.ConvertCommand.ExecuteAsync(null);
                 };
             }

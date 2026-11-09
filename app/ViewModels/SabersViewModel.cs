@@ -193,7 +193,7 @@ public partial class SabersViewModel : ObservableObject, IDisposable
 
     private List<SaberCard> Todo() => Cards.Where(c => c.Entry.SourceExists && c.Entry.State != SaberState.Converted).ToList();
 
-    private bool CanConvert() => !IsBusy && QuestUnity != null && Todo().Count > 0;
+    private bool CanConvert() => !IsBusy && !SetupViewModel.Busy && QuestUnity != null && Todo().Count > 0;
 
     [RelayCommand(CanExecute = nameof(CanConvert))]
     private async Task Convert()

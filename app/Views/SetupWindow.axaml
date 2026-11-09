@@ -1,0 +1,140 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SaberBridge.ViewModels"
+        xmlns:app="using:SaberBridge"
+        x:Class="SaberBridge.Views.SetupWindow"
+        x:DataType="vm:SetupViewModel"
+        Title="{x:Static app:L.GuideWindowTitle}"
+        Icon="/Assets/icon.ico"
+        Width="880" Height="760" MinWidth="680" MinHeight="520"
+        Background="{StaticResource Bg}"
+        WindowStartupLocation="CenterOwner">
+
+  <ScrollViewer>
+    <StackPanel Margin="28,22" Spacing="18">
+
+      <!-- what this is about -->
+      <StackPanel Spacing="6">
+        <TextBlock Text="{x:Static app:L.GuideWindowTitle}" FontSize="22" FontWeight="Bold" />
+        <TextBlock Classes="muted" Text="{x:Static app:L.GuideIntro}" TextWrapping="Wrap" />
+      </StackPanel>
+
+      <!-- the one thing worth doing ahead: a Unity account -->
+      <Border Classes="card" Padding="16,12" BorderBrush="#2F8CFF" BorderThickness="1">
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel Spacing="4">
+            <TextBlock Text="{x:Static app:L.GuideAccountTitle}" FontWeight="SemiBold" FontSize="15" />
+            <TextBlock Classes="muted" Text="{x:Static app:L.GuideAccountBody}" TextWrapping="Wrap" />
+          </StackPanel>
+          <Button Grid.Column="1" Classes="primary" Margin="16,0,0,0" VerticalAlignment="Center" Content="{x:Static app:L.ActCreateAccount}" Command="{Binding CreateAccountCommand}" />
+        </Grid>
+      </Border>
+
+      <!-- live status, the same as the banner -->
+      <Border Classes="card" Padding="16,12">
+        <StackPanel Spacing="6">
+          <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+          <TextBlock Classes="muted" Text="{Binding Text}" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding Detail}" FontSize="12" TextWrapping="Wrap" IsVisible="{Binding HasDetail}" />
+          <TextBlock Text="{Binding Error}" Foreground="{StaticResource Warn}" TextWrapping="Wrap" IsVisible="{Binding HasError}" />
+          <ProgressBar Value="{Binding Percent}" IsIndeterminate="{Binding !PercentKnown}" Height="6" MinHeight="6" IsVisible="{Binding !IsError}" />
+          <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+            <Button Classes="ghost" Content="{x:Static app:L.ActSkip}" Command="{Binding SkipCommand}" IsVisible="{Binding CanSkip}" />
+            <Button Classes="primary" Content="{x:Static app:L.ActAllow}" Command="{Binding AllowCommand}" IsVisible="{Binding ShowAllow}" />
+            <Button Classes="primary" Content="{x:Static app:L.ActSignIn}" Command="{Binding OpenHubCommand}" IsVisible="{Binding ShowHub}" />
+            <Button Classes="primary" Content="{x:Static app:L.ActRetry}" Command="{Binding RetryCommand}" IsVisible="{Binding ShowRetry}" />
+            <Button Classes="ghost" Content="{x:Static app:L.ActLog}" Command="{Binding OpenLogCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <!-- the steps -->
+      <ItemsControl ItemsSource="{Binding Guide.Steps}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:GuideStep">
+            <Grid ColumnDefinitions="40,*" Margin="0,0,0,14">
+              <Border Width="28" Height="28" CornerRadius="14" Background="{Binding MarkBrush}" VerticalAlignment="Top">
+                <TextBlock Text="{Binding Mark}" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <StackPanel Grid.Column="1" Spacing="4">
+                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="15" Opacity="{Binding TitleOpacity}" />
+                <TextBlock Classes="muted" Text="{Binding Body}" TextWrapping="Wrap" />
+              </StackPanel>
+            </Grid>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <!-- disk space -->
+      <Border Classes="card" Padding="16,12">
+        <StackPanel Spacing="8">
+          <TextBlock Text="{x:Static app:L.GuideDisksTitle}" FontWeight="SemiBold" />
+          <TextBlock Classes="muted" Text="{Binding EditorDirText}" TextWrapping="Wrap" />
+          <Grid ColumnDefinitions="70,*,90,90,90">
+            <TextBlock Classes="muted" Text="{x:Static app:L.GuideDisk}" FontSize="12" />
+            <TextBlock Grid.Column="1" Classes="muted" Text="{x:Static app:L.GuideWhat}" FontSize="12" />
+            <TextBlock Grid.Column="2" Classes="muted" Text="{x:Static app:L.GuideNeed}" FontSize="12" />
+            <TextBlock Grid.Column="3" Classes="muted" Text="{x:Static app:L.GuideFree}" FontSize="12" />
+          </Grid>
+          <ItemsControl ItemsSource="{Binding Guide.Disks}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:DiskRowView">
+                <Grid ColumnDefinitions="70,*,90,90,90" Margin="0,2">
+                  <TextBlock Text="{Binding Drive}" FontWeight="SemiBold" />
+                  <TextBlock Grid.Column="1" Text="{Binding What}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Column="2" Text="{Binding Need}" />
+                  <TextBlock Grid.Column="3" Text="{Binding Free}" />
+                  <TextBlock Grid.Column="4" Text="{Binding Verdict}" Foreground="{Binding VerdictBrush}" FontWeight="SemiBold" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
+      <!-- what the Windows prompt looks like -->
+      <Border Classes="card" Padding="16,12">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{x:Static app:L.GuideUacTitle}" FontWeight="SemiBold" />
+          <TextBlock Classes="muted" Text="{x:Static app:L.GuideUacBody}" TextWrapping="Wrap" />
+          <Border HorizontalAlignment="Left" Width="420" Background="#F3F3F3" CornerRadius="8" ClipToBounds="True">
+            <StackPanel>
+              <Border Background="#E8E8E8" Padding="14,8">
+                <TextBlock Text="{x:Static app:L.UacHeader}" Foreground="#222" FontSize="12" />
+              </Border>
+              <StackPanel Margin="14,10" Spacing="6">
+                <TextBlock Text="{x:Static app:L.UacQuestion}" Foreground="#111" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
+                <TextBlock Text="Windows PowerShell" Foreground="#111" FontWeight="SemiBold" />
+                <TextBlock Text="{x:Static app:L.UacPublisher}" Foreground="#444" FontSize="12" />
+              </StackPanel>
+              <Grid ColumnDefinitions="*,*" Margin="14,4,14,14">
+                <Border Margin="0,0,6,0" Background="#0067C0" CornerRadius="4" Padding="0,7" BorderBrush="#FFB547" BorderThickness="3">
+                  <TextBlock Text="{x:Static app:L.UacYes}" Foreground="White" HorizontalAlignment="Center" FontWeight="SemiBold" />
+                </Border>
+                <Border Grid.Column="1" Margin="6,0,0,0" Background="#FBFBFB" BorderBrush="#CCC" BorderThickness="1" CornerRadius="4" Padding="0,7">
+                  <TextBlock Text="{x:Static app:L.UacNo}" Foreground="#222" HorizontalAlignment="Center" />
+                </Border>
+              </Grid>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </Border>
+
+      <!-- Unity Hub sign-in -->
+      <Border Classes="card" Padding="16,12">
+        <StackPanel Spacing="6">
+          <TextBlock Text="{x:Static app:L.GuideHubTitle}" FontWeight="SemiBold" />
+          <TextBlock Classes="muted" Text="{x:Static app:L.GuideHubBody}" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <!-- trouble -->
+      <Border Classes="card" Padding="16,12">
+        <StackPanel Spacing="6">
+          <TextBlock Text="{x:Static app:L.GuideTroubleTitle}" FontWeight="SemiBold" />
+          <TextBlock Classes="muted" Text="{x:Static app:L.GuideTroubleBody}" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</Window>

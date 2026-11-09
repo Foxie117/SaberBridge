@@ -13,6 +13,7 @@ public partial class PreviewWindow : Window
     public PreviewWindow()
     {
         InitializeComponent();
+        WindowFit.Attach(this);
         Stage.PointerPressed += (_, e) => _dragFrom = e.GetPosition(Stage);
         Stage.PointerReleased += (_, _) => _dragFrom = null;
         Stage.PointerMoved += (_, e) =>

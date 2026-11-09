@@ -46,6 +46,9 @@ public sealed class Settings
     public int LastTab { get; set; }
     public int LastQuestKind { get; set; }
 
+    /// <summary>Unity has to run as a hidden normal editor here (no batch-mode license); see UnityRunner.</summary>
+    public bool UnityHiddenWindow { get; set; }
+
     public static Settings Load()
     {
         try
