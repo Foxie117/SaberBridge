@@ -43,7 +43,11 @@ public partial class MainViewModel : ObservableObject, IConversionListener
         Setup.StartIfNeeded();
         if (Setup.IsVisible) Status = Sabers.Status = L.SetupWaitStatus;
         ShowSystemCheck = NeedsSystemCheck;
+        Updater = new UpdateViewModel(_settings, () => IsBusy || Sabers.IsBusy || SetupViewModel.Busy);
+        Updater.Start();
     }
+
+    public UpdateViewModel Updater { get; }
 
     // The system check opens by itself only when the open tab has something to convert and lacks what it needs;
     // the header chip ("Needs attention") opens it any time.

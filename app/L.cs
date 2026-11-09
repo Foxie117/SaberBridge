@@ -226,6 +226,23 @@ public static class L
     public static string SetupTitleFailed => T("Установка Unity остановилась", "Unity setup stopped");
     public static string SetupReady => T("Unity готова — можно конвертировать", "Unity is ready, you can convert");
     public static string SetupReadyHint => T("Перетаскивай файлы и жми «Конвертировать». Это окно скоро скроется.", "Drop files and press Convert. This panel hides in a moment.");
+    public static string UpdateTitle(string v) => T($"Вышла новая версия SaberBridge {v}", $"SaberBridge {v} is out");
+    public static string UpdateText(string current, bool oneClick) => oneClick
+        ? T($"У тебя {current}. Обновление скачается с GitHub, программа перезапустится сама.", $"You have {current}. The update downloads from GitHub and the app restarts by itself.")
+        : T($"У тебя {current}. Скачай новую версию со страницы релиза.", $"You have {current}. Get the new version from the release page.");
+    public static string UpdateNow => T("Обновить", "Update");
+    public static string UpdateDownload => T("Скачать", "Download");
+    public static string UpdateWhatsNew => T("Что нового", "What's new");
+    public static string UpdateSkip => T("Пропустить эту версию", "Skip this version");
+    public static string UpdateBusy => T("Обновление станет доступно, когда закончится конвертация или установка Unity.", "Update becomes available once the conversion or the Unity setup is done.");
+    public static string UpdateDownloading(string done, string total) => T($"Скачиваю обновление: {done} из {total}", $"Downloading the update: {done} of {total}");
+    public static string UpdateBadChecksum => T("Скачанный файл не совпал с контрольной суммой GitHub, он удалён. Попробуй ещё раз.", "The downloaded file does not match GitHub's checksum and was deleted. Try again.");
+    public static string UpdateFailed(string why) => T($"Не получилось обновиться: {why}", $"Update failed: {why}");
+    public static string UpdateCheck => T("Проверить обновления", "Check for updates");
+    public static string UpdateChecking => T("Проверяю…", "Checking…");
+    public static string UpdateNone => T("У тебя последняя версия.", "You have the latest version.");
+    public static string UpdateOffline => T("GitHub не отвечает. Проверь интернет или попробуй позже.", "GitHub can't be reached. Check the connection or try later.");
+    public static string AppVersion(string v) => T($"Версия {v}", $"Version {v}");
     public static string SetupWaitStatus => T("Сначала программа подготовит Unity — ход установки в панели сверху.", "Setting up Unity first; progress is in the panel at the top.");
     public static string DiskEditor => T("Unity и модуль Android", "Unity and the Android module");
     public static string DiskHub => T("Unity Hub и Visual C++", "Unity Hub and Visual C++");

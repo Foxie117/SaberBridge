@@ -49,6 +49,11 @@ public sealed class Settings
     /// <summary>Unity has to run as a hidden normal editor here (no batch-mode license); see UnityRunner.</summary>
     public bool UnityHiddenWindow { get; set; }
 
+    /// <summary>Update check: when GitHub was last asked, the newest version it named, and one the user chose to skip.</summary>
+    public DateTime? UpdateCheckedAt { get; set; }
+    public string? UpdateLatest { get; set; }
+    public string? UpdateSkipped { get; set; }
+
     public static Settings Load()
     {
         try
