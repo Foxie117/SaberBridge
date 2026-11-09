@@ -4,13 +4,14 @@
 
 <p align="center">A one-window converter for Beat Saber mods on Windows and Linux.</p>
 
-SaberBridge does three things:
+SaberBridge does four things:
 
 - **PC avatars.** It turns VRM, VRChat and MMD models into `.avatar` files for the **Custom Avatars** mod (5.4.x, Beat Saber 1.40) and installs them into the game.
 - **Quest sabers.** It turns PC **CustomSabers** files (`.saber`) into Quest sabers (`.whacker`).
 - **Quest notes.** It turns PC **Custom Notes** files (`.bloq`) into Quest notes (`.cyoob`).
+- **Quest avatars.** It turns PC **Custom Avatars** files (`.avatar`, made by anyone) into `.vrm` for the **VRM Qavatars** mod. *New, not yet tested on a headset; reports welcome.*
 
-The Quest files load with Qosmetics-format mods on a standalone Quest (Beat Saber 1.29+, for example Qosmetics or Custom Models).
+The Quest sabers and notes load with Qosmetics-format mods on a standalone Quest (Beat Saber 1.29+, for example Qosmetics or Custom Models).
 
 Drop your files into the window and press **Convert**. Unity does the building in the background; you never open it yourself, and the app installs it for you (see [What you need](#what-you-need)). The interface is in English and Russian.
 
@@ -52,12 +53,12 @@ Every avatar gets full-body IK (VRIK), finger poses, first-person head hiding, t
 | **Preview with skeleton and avatar check** | **System check** |
 | ![Preview](docs/preview.png) | ![System check](docs/system-check.png) |
 
-## Quest sabers and notes (.saber → .whacker, .bloq → .cyoob)
+## Quest sabers, notes and avatars (.saber → .whacker, .bloq → .cyoob, .avatar → .vrm)
 
 1. Open the **Quest** tab. Without Beat Saber on the PC the app opens on it by itself.
-2. **Drop `.saber` and `.bloq` files**, mixed as you like, or a `.zip` with them. They all go into one queue; a badge shows what each one is. Files for the other tab (models) go to the PC queue without switching tabs.
-3. **Press Convert once.** Unity builds a PC and an Android (Quest) version of each file in one run and packs them.
-4. Take the results from the **Quest folder** (by default `Documents\SaberBridge\Quest`): sabers are in `Sabers`, notes in `Notes`. Install them on the Quest with **Mods Before Friday**.
+2. **Drop `.saber`, `.bloq` and `.avatar` files**, mixed as you like, or a `.zip` with them. They all go into one queue; a badge shows what each one is. Files for the other tab (models) go to the PC queue without switching tabs.
+3. **Press Convert once.** Unity builds a PC and an Android (Quest) version of each saber and note set in one run and packs them; avatars are converted in a run of their own.
+4. Take the results from the **Quest folder** (by default `Documents\SaberBridge\Quest`): sabers are in `Sabers`, notes in `Notes`, avatars in `Avatars`. Install them on the Quest with **Mods Before Friday**.
 
 ![Quest tab](docs/quest.png)
 
@@ -71,7 +72,16 @@ Every avatar gets full-body IK (VRIK), finger poses, first-person head hiding, t
 - **Placed like on PC.** Custom Notes puts every note at the centre of the note cube at 0.4 scale with its own rotation; the `.cyoob` reproduces exactly that, whatever transform the author left in the file.
 - Note colours follow the Custom Notes "uses note colour" setting and its per-object exceptions.
 
-**Both**
+**Avatars** (for [VRM Qavatars](https://github.com/BSQ-VRM/VRM-Qavatars))
+- **VRM 0.x with MToon materials**, because that is what VRM Qavatars reads (it puts every material on MToon). The look comes from each material's texture and colour; SaberBridge-made avatars keep their MToon settings.
+- **Skeleton** from the avatar's humanoid Animator, or from its full-body IK (every `.avatar` has VRIK). Tracker objects and the mod's scripts are left out.
+- **Size as on PC.** Bones and meshes are normalised the way VRM wants (also for Blender models with a 100× armature); a model whose author left an absurd size (Custom Avatars resizes every avatar in game) is brought to an ordinary height.
+- **Physics:** DynamicBone chains and colliders become VRM spring bones. **Expressions:** blink and the A/I/U/E/O mouth shapes when the model has blend shapes with the usual names (VRChat, VRM, MMD).
+- **Sized for the Quest:** textures up to 1024 px, blend shapes no expression uses are dropped.
+- Reading an `.avatar` needs **Beat Saber with Custom Avatars on this PC** (FinalIK and DynamicBone come from it); the game picker shows on the Quest tab when avatars wait there.
+- Not yet: avatars whose meshes were saved without Read/Write.
+
+**Sabers and notes**
 - **Meshes, textures and colours carry over.** Meshes saved without Read/Write are recovered through a one-off GPU capture.
 - **Shaders.** PC shaders cannot run on the Quest, so they are swapped for Quest shaders. Their look is captured from the PC shader (lighting and colour on a sphere) and baked in, so metal, gradients and tints stay close to the PC version. Procedural PC effects such as fire or distortion become a soft glow. All shaders are built with the Quest's multiview stereo variants.
 - **Originals are never changed or moved.** The queue remembers which Quest file came from which original, shows the cover from the converted file, and notices when a converted file is deleted, so you can convert it again.
@@ -80,13 +90,13 @@ Want to try it without a saber of your own? [`samples/`](samples) has three simp
 
 ## What you need
 
-| | PC avatars | Quest sabers and notes |
-|---|---|---|
-| Unity **2021.3.16f1** with Unity Hub, a free Personal license and the Android module | ✔ | ✔ |
-| A free **Unity account** (to sign in once for the license) | ✔ | ✔ |
-| Beat Saber with Custom Avatars (BSManager or Steam) | ✔ | |
-| Beat Saber 1.29+ with a Qosmetics-format mod on the Quest | | ✔ |
-| About 10 GB of free disk space for Unity (about 15 GB during the first setup) | ✔ | ✔ |
+| | PC avatars | Quest sabers and notes | Quest avatars |
+|---|---|---|---|
+| Unity **2021.3.16f1** with Unity Hub, a free Personal license and the Android module | ✔ | ✔ | ✔ |
+| A free **Unity account** (to sign in once for the license) | ✔ | ✔ | ✔ |
+| Beat Saber with Custom Avatars on the PC (BSManager or Steam) | ✔ | | ✔ |
+| On the Quest | | Beat Saber 1.29+ with a Qosmetics-format mod | VRM Qavatars |
+| About 10 GB of free disk space for Unity (about 15 GB during the first setup) | ✔ | ✔ | ✔ |
 
 **Unity installs itself (Windows).** On first start the app sets up everything Unity needs in the background, with a guide window that explains each step:
 
@@ -105,8 +115,10 @@ On Linux, install Unity Hub and Unity 2021.3.16f1 with the *Windows Build Suppor
 
 ## Good to know
 
-- Finished files: `Documents\SaberBridge\PC\Avatars` and `Documents\SaberBridge\Quest\Sabers` / `Notes`. Settings, logs (including `setup.log` for the Unity setup) and previews live in `%LOCALAPPDATA%\SaberBridge` (Windows) or `~/.local/share/SaberBridge` (Linux).
-- You can drop files onto the `.exe`, or run `SaberBridge model.vrm --convert`.
+- Finished files: `Documents\SaberBridge\PC\Avatars` and `Documents\SaberBridge\Quest\Sabers` / `Notes` / `Avatars`. Settings, logs (including `setup.log` for the Unity setup) and previews live in `%LOCALAPPDATA%\SaberBridge` (Windows) or `~/.local/share/SaberBridge` (Linux).
+- You can drop files onto the `.exe`, or run `SaberBridge model.vrm --convert`. Opening an `.avatar` with the app shows its preview.
+- **Updates:** the app looks for a new release on GitHub once a day and shows a note; the Windows `.exe` updates itself in one click (the download is checked against GitHub's SHA-256). Settings show the version and a *Check for updates* button.
+- The language (English / Russian) switches at once, without a restart.
 - Known limitations and ideas are tracked in [Issues](../../issues).
 
 ## Repository layout
@@ -139,6 +151,7 @@ Open `unity/` in Unity 2021.3.16f1 after copying `FinalIK.dll` and `DynamicBone.
 - `VRM2BS.VrcAvatarConverter.Run -importDir Assets/VRC_Import/<Name> -outDir <dir>` (optional `variants.txt` for colour variants)
 - `VRM2BS.VrmToAvatarConverter.Validate -outDir <dir>`: loads built bundles like the mod does
 - `VRM2BS.AvatarPreview.Run -avatarList <file> -previewDir <dir>`: checks `.avatar` files and renders the preview frames
+- `VRM2BS.AvatarToVrm.Run -avatarList <file> -outDir <dir>`: `.avatar` → VRM 0.x for VRM Qavatars; `VRM2BS.AvatarToVrm.Check -outDir <dir>` loads the results back like a VRM 0.x loader and renders front and side pictures
 
 `unity-quest/` needs the Android module and no paid assets:
 
@@ -156,4 +169,4 @@ SaberBridge is released under the [MIT License](LICENSE). Bundled third-party pa
 
 <sub>Demo models: *Sendagaya Shino*, *Sendagaya Shibu*, *Vita*, *Vivi* and *Victoria Rubin*, the VRoid Studio sample models by pixiv Inc., released under [CC0](https://creativecommons.org/publicdomain/zero/1.0/) (see [pixiv's terms](https://vroid.pixiv.help/hc/en-us/articles/4402614652569)). Demo sabers: made for this project, CC0.</sub>
 
-<sub>SaberBridge is a fan-made tool and is not affiliated with Beat Games, Meta, Unity, pixiv, or the authors of Custom Avatars, CustomSabers, Custom Notes or Qosmetics.</sub>
+<sub>SaberBridge is a fan-made tool and is not affiliated with Beat Games, Meta, Unity, pixiv, or the authors of Custom Avatars, CustomSabers, Custom Notes, Qosmetics or VRM Qavatars.</sub>
