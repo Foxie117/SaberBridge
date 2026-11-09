@@ -20,8 +20,8 @@ public partial class SaberCard : ObservableObject
     public SaberEntry Entry { get; }
     public string Name => Entry.Name;
     public string SourcePath => Entry.SourcePath;
-    public string Badge => Entry.Kind == QuestKind.Note ? "NOTES" : "SABER";
-    public IBrush BadgeBrush => Brush.Parse(Entry.Kind == QuestKind.Note ? "#18A999" : "#B068FF");
+    public string Badge => Entry.Kind switch { QuestKind.Note => "NOTES", QuestKind.Avatar => "AVATAR", _ => "SABER" };
+    public IBrush BadgeBrush => Brush.Parse(Entry.Kind switch { QuestKind.Note => "#18A999", QuestKind.Avatar => "#FF7A45", _ => "#B068FF" });
 
     [ObservableProperty] private string _statusText = "";
     [ObservableProperty] private IBrush _statusBrush = Brushes.Gray;
@@ -69,6 +69,14 @@ public partial class SaberCard : ObservableObject
         if (path == null) return;
         try
         {
+            if (Entry.Kind == QuestKind.Avatar)
+            {
+                // a .vrm carries its thumbnail in the VRM meta
+                using Stream? png = VrmThumbnail.Open(path);
+                if (png != null) Cover = Bitmap.DecodeToWidth(png, 96);
+                return;
+            }
+
             using ZipArchive zip = ZipFile.OpenRead(path);
             ZipArchiveEntry? thumb = zip.GetEntry("thumbnail.png");
             if (thumb == null) return;
@@ -95,6 +103,9 @@ public partial class SabersViewModel : ObservableObject, IDisposable
     private readonly SaberLibrary _library = SaberLibrary.Load();
     private FileSystemWatcher? _watcher;
 
+    /// <summary>Set by the main view model: the selected PC game, whose Custom Avatars files are needed to read .avatar files.</summary>
+    public Func<GameInstall?>? Game { get; set; }
+
     public SabersViewModel(Settings settings)
     {
         _settings = settings;
@@ -109,10 +120,13 @@ public partial class SabersViewModel : ObservableObject, IDisposable
     public string DropTitle => L.QuestDropTitle;
     public string DropHint => L.QuestDropHint;
     public string EmptyText => L.QuestEmpty;
-    public string FilePattern => "*.saber;*.bloq";
+    public string FilePattern => "*.saber;*.bloq;*.avatar";
 
     public string OutputDir => string.IsNullOrWhiteSpace(_settings.QuestOutputDir) ? SaberLibrary.DefaultOutputDir : _settings.QuestOutputDir;
     public bool IsEmpty => Cards.Count == 0;
+
+    /// <summary>Avatars in the queue need the PC game (for Custom Avatars' files), so the game picker shows on this tab too.</summary>
+    public bool HasAvatars => Cards.Any(c => c.Entry.Kind == QuestKind.Avatar);
     public string Header => Cards.Count == 0 ? L.QuestQueue : $"{L.QuestQueue} · {Cards.Count}";
 
     [ObservableProperty] private string _summary = "";
@@ -134,7 +148,7 @@ public partial class SabersViewModel : ObservableObject, IDisposable
 
     public void AddFiles(IEnumerable<InputJob> jobs)
     {
-        foreach (InputJob j in jobs.Where(j => j.Kind is JobKind.Saber or JobKind.Note))
+        foreach (InputJob j in jobs.Where(j => j.Kind is JobKind.Saber or JobKind.Note or JobKind.Avatar))
         {
             string source = j.File;
 
@@ -203,20 +217,62 @@ public partial class SabersViewModel : ObservableObject, IDisposable
         IsBusy = true;
         try
         {
-            Status = ProjectSetup.IsQuestImported ? L.Phase("unity-start") : L.SaberFirstRun;
-            await Task.Run(ProjectSetup.EnsureQuest);
-            Directory.CreateDirectory(AppPaths.Temp);
-            // one Unity run for the whole queue: the job runner picks saber or note by the file's extension
-            const string method = "SaberBridge.QuestJobs.Run";
-            string jobs = Path.Combine(AppPaths.Temp, $"quest-{Guid.NewGuid():N}.txt");
-            await File.WriteAllLinesAsync(jobs, todo.Select(c => $"{c.Entry.SourcePath}|{SaberLibrary.FolderFor(OutputDir, c.Entry.Kind)}"));
-
             int ok = 0, failed = 0;
-            UnityResult r = await UnityRunner.RunAsync(QuestUnity, method, new[] { "-jobsFile", jobs }, line => Dispatcher.UIThread.Post(() =>
+            string? problem = null;
+            Directory.CreateDirectory(AppPaths.Temp);
+            List<SaberCard> assets = todo.Where(c => c.Entry.Kind != QuestKind.Avatar).ToList();
+            List<SaberCard> avatars = todo.Where(c => c.Entry.Kind == QuestKind.Avatar).ToList();
+
+            if (assets.Count > 0)
+            {
+                Status = ProjectSetup.IsQuestImported ? L.Phase("unity-start") : L.SaberFirstRun;
+                await Task.Run(ProjectSetup.EnsureQuest);
+                // one Unity run for sabers and notes: the job runner picks the converter by the file's extension
+                string jobs = Path.Combine(AppPaths.Temp, $"quest-{Guid.NewGuid():N}.txt");
+                await File.WriteAllLinesAsync(jobs, assets.Select(c => $"{c.Entry.SourcePath}|{SaberLibrary.FolderFor(OutputDir, c.Entry.Kind)}"));
+                UnityResult r = await UnityRunner.RunAsync(QuestUnity, "SaberBridge.QuestJobs.Run", new[] { "-jobsFile", jobs }, OnLine(assets), _ => { }, CancellationToken.None, AppPaths.QuestProject);
+                await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+                ProjectSetup.MarkQuestImported();
+                problem = r.Problem;
+            }
+
+            // avatars are read in the PC avatar project (it has Custom Avatars), in a run of their own
+            if (avatars.Count > 0)
+            {
+                string? missing = await Task.Run(() => ProjectSetup.EnsureForAvatarFiles(Game?.Invoke()));
+                if (missing != null)
+                {
+                    foreach (SaberCard c in avatars)
+                    {
+                        c.Error = missing;
+                        c.Refresh();
+                    }
+
+                    failed += avatars.Count;
+                    problem ??= missing;
+                }
+                else
+                {
+                    Status = ProjectSetup.IsFirstImport ? L.SaberFirstRun : L.Phase("unity-start");
+                    string list = Path.Combine(AppPaths.Temp, $"avatars-{Guid.NewGuid():N}.txt");
+                    await File.WriteAllLinesAsync(list, avatars.Select(c => c.Entry.SourcePath));
+                    string outDir = SaberLibrary.FolderFor(OutputDir, QuestKind.Avatar);
+                    UnityResult r = await UnityRunner.RunAsync(QuestUnity, "VRM2BS.AvatarToVrm.Run", new[] { "-avatarList", list, "-outDir", outDir }, OnLine(avatars), _ => { }, CancellationToken.None, AppPaths.UnityProject);
+                    await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+                    if (r.Problem == null) ProjectSetup.MarkImported();
+                    problem ??= r.Problem;
+                }
+            }
+
+            _library.Save();
+            RefreshAll();
+            Status = problem ?? L.SaberFinished(ok, failed);
+
+            Action<string> OnLine(List<SaberCard> batch) => line => Dispatcher.UIThread.Post(() =>
             {
                 // "BEGIN 2/3 name.saber", "OK   name.saber -> C:\...\name.whacker", "FAIL name.saber: reason"
                 if (line.StartsWith("BEGIN ")) Status = L.SaberConverting(line[6..]);
-                SaberCard? card = todo.FirstOrDefault(c => line.Contains(Path.GetFileName(c.Entry.SourcePath)));
+                SaberCard? card = batch.FirstOrDefault(c => line.Contains(Path.GetFileName(c.Entry.SourcePath)));
                 if (card == null) return;
                 card.IsWorking = line.StartsWith("BEGIN ") || line.StartsWith("STAGE ");
                 if (line.StartsWith("OK ") && line.Split(" -> ") is [_, var path])
@@ -233,13 +289,7 @@ public partial class SabersViewModel : ObservableObject, IDisposable
 
                 card.Refresh();
                 UpdateCounters();
-            }), _ => { }, CancellationToken.None, AppPaths.QuestProject);
-
-            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
-            ProjectSetup.MarkQuestImported();
-            _library.Save();
-            RefreshAll();
-            Status = r.Problem ?? L.SaberFinished(ok, failed);
+            });
         }
         catch (Exception ex)
         {
@@ -257,6 +307,7 @@ public partial class SabersViewModel : ObservableObject, IDisposable
         int missing = Cards.Count(c => c.Entry.State == SaberState.OutputMissing);
         Summary = Cards.Count == 0 ? "" : L.SaberSummary(Cards.Count, done, missing);
         Pending = Todo().Count;
+        OnPropertyChanged(nameof(HasAvatars));
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(Header));
     }
@@ -272,6 +323,7 @@ public partial class SabersViewModel : ObservableObject, IDisposable
             _watcher = new FileSystemWatcher(OutputDir) { IncludeSubdirectories = true, EnableRaisingEvents = true };
             _watcher.Filters.Add("*.whacker");
             _watcher.Filters.Add("*.cyoob");
+            _watcher.Filters.Add("*.vrm");
             _watcher.Deleted += (_, _) => Dispatcher.UIThread.Post(RefreshAll);
             _watcher.Created += (_, _) => Dispatcher.UIThread.Post(RefreshAll);
             _watcher.Renamed += (_, _) => Dispatcher.UIThread.Post(RefreshAll);

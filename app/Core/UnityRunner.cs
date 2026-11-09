@@ -36,6 +36,24 @@ public static class ProjectSetup
         Directory.CreateDirectory(import);
     }
 
+    /// <summary>
+    /// The avatar project for reading .avatar files (.avatar -> .vrm). It needs Custom Avatars' FinalIK and DynamicBone from a PC game
+    /// copy to load them; null when there is none (the caller explains).
+    /// </summary>
+    public static string? EnsureForAvatarFiles(GameInstall? game)
+    {
+        if (game == null) return L.AvatarNeedsGame;
+        try
+        {
+            Ensure(game);
+            return null;
+        }
+        catch (FileNotFoundException e)
+        {
+            return e.Message;
+        }
+    }
+
     /// <summary>The Unity project (opened with 2021.3, like Quest Beat Saber 1.29+) that turns PC sabers into Quest .whacker files.</summary>
     public static void EnsureQuest() => Extract("unity-quest.zip", AppPaths.QuestProject);
 

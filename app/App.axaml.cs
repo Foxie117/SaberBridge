@@ -16,6 +16,23 @@ public partial class App : Application
         {
             MainViewModel vm = new();
             desktop.MainWindow = new MainWindow { DataContext = vm };
+            vm.RebuildWindow = () =>
+            {
+                // same place and size; the old window (and the previews it owns) closes after the new one shows
+                Avalonia.Controls.Window old = desktop.MainWindow!;
+                MainWindow fresh = new()
+                {
+                    DataContext = vm,
+                    WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.Manual,
+                    Position = old.Position,
+                    Width = old.Width,
+                    Height = old.Height,
+                };
+                fresh.Show();
+                fresh.WindowState = old.WindowState;
+                desktop.MainWindow = fresh;
+                old.Close();
+            };
 
             // files dropped onto the exe (or passed on the command line) go straight into the queue;
             // "--convert" also starts the conversion

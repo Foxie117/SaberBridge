@@ -88,13 +88,18 @@
             <TextBlock Text="{Binding UnityText}" FontSize="12" VerticalAlignment="Center" />
           </StackPanel>
         </Border>
-        <Border Classes="card" Padding="12,2,4,2" CornerRadius="20" IsVisible="{Binding IsAvatarsTab}">
+        <Border Classes="card" Padding="12,2,4,2" CornerRadius="20" IsVisible="{Binding ShowGamePicker}">
           <StackPanel Orientation="Horizontal" Spacing="8">
             <Ellipse Width="8" Height="8" Fill="{StaticResource Ok}" IsVisible="{Binding GameOk}" />
             <Ellipse Width="8" Height="8" Fill="{StaticResource Red}" IsVisible="{Binding !GameOk}" />
             <ComboBox ItemsSource="{Binding Games}" SelectedItem="{Binding SelectedGame}" MinWidth="170"
                       Background="Transparent" BorderThickness="0" FontSize="12"
-                      PlaceholderText="{x:Static app:L.GameMissing}" IsEnabled="{Binding !IsBusy}" />
+                      PlaceholderText="{x:Static app:L.GameMissing}" IsEnabled="{Binding !IsBusy}" IsVisible="{Binding HasGames}" />
+            <!-- nothing to pick from: a plain button that asks for the folder instead of an empty list -->
+            <Button Classes="ghost" BorderThickness="0" Background="Transparent" FontSize="12" Padding="4,6,10,6" IsVisible="{Binding !HasGames}"
+                    Click="PickGame_Click" ToolTip.Tip="{x:Static app:L.PickGame}" IsEnabled="{Binding !IsBusy}">
+              <TextBlock Text="{x:Static app:L.GameMissing}" />
+            </Button>
           </StackPanel>
         </Border>
         <Button Classes="chip" Command="{Binding ToggleLanguageCommand}" ToolTip.Tip="{x:Static app:L.Language}" MinWidth="44">

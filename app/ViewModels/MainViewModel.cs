@@ -20,14 +20,19 @@ public partial class MainViewModel : ObservableObject, IConversionListener
     {
         _autoInstall = _settings.AutoInstall;
         SystemCheck = new SystemCheckViewModel(this);
-        Sabers = new SabersViewModel(_settings);
-        Sabers.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(SabersViewModel.Pending)) OnPropertyChanged(nameof(QuestTabTitle)); };
+        Sabers = new SabersViewModel(_settings) { Game = () => SelectedGame };
+        Sabers.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(SabersViewModel.Pending)) OnPropertyChanged(nameof(QuestTabTitle));
+            if (e.PropertyName == nameof(SabersViewModel.HasAvatars)) OnPropertyChanged(nameof(ShowGamePicker));
+        };
         Queue.CollectionChanged += (_, e) =>
         {
             foreach (QueueItem q in e.NewItems?.OfType<QueueItem>() ?? Enumerable.Empty<QueueItem>())
                 q.PropertyChanged += (_, pe) => { if (pe.PropertyName == nameof(QueueItem.State)) OnPropertyChanged(nameof(PcTabTitle)); };
             OnPropertyChanged(nameof(PcTabTitle));
         };
+        Games.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasGames));
         // without Beat Saber on this PC the PC tab has nothing to do, so the app opens on Quest
         bool hasGame = GameLocator.FindAll(_settings.GamePath).Any();
         _tab = _settings.LastTab == 1 || !hasGame ? 1 : 0;
@@ -59,7 +64,10 @@ public partial class MainViewModel : ObservableObject, IConversionListener
     public SabersViewModel Sabers { get; }
 
     // 0 = PC (avatars), 1 = Quest (sabers and notes); each tab has its own requirements in the system check
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(IsAvatarsTab), nameof(IsQuestTab), nameof(UnityReady), nameof(SystemIntro))] private int _tab;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(IsAvatarsTab), nameof(IsQuestTab), nameof(UnityReady), nameof(SystemIntro), nameof(ShowGamePicker))] private int _tab;
+
+    /// <summary>The game picker: always on the PC tab, on the Quest tab when .avatar files wait there.</summary>
+    public bool ShowGamePicker => IsAvatarsTab || Sabers.HasAvatars;
     public bool IsAvatarsTab => Tab == 0;
     public bool IsQuestTab => Tab == 1;
     public string SystemIntro => IsQuestTab ? L.SystemIntroQuest : L.SystemIntro;
@@ -87,6 +95,7 @@ public partial class MainViewModel : ObservableObject, IConversionListener
     }
     public ObservableCollection<QueueItem> Queue { get; } = new();
     public ObservableCollection<GameInstall> Games { get; } = new();
+    public bool HasGames => Games.Count > 0;
 
     // all library cards, and the sorted / filtered list the view shows
     public List<AvatarCard> Avatars { get; } = new();
@@ -207,11 +216,11 @@ public partial class MainViewModel : ObservableObject, IConversionListener
 
             // every file goes to the queue of its mode (sabers and notes: Quest, models: PC), wherever it was
             // dropped; the open tab stays, and a note says what went to the other one
-            List<InputJob> quest = jobs.Where(j => j.Kind is JobKind.Saber or JobKind.Note).ToList();
+            List<InputJob> quest = jobs.Where(j => j.Kind is JobKind.Saber or JobKind.Note or JobKind.Avatar).ToList();
             if (quest.Count > 0) Sabers.AddFiles(quest);
 
             int pc = 0;
-            foreach (InputJob job in jobs.Where(j => j.Kind is not (JobKind.Saber or JobKind.Note)))
+            foreach (InputJob job in jobs.Where(j => j.Kind is not (JobKind.Saber or JobKind.Note or JobKind.Avatar)))
             {
                 if (Queue.Any(q => q.Job.File == job.File)) continue;
                 Queue.Add(new QueueItem(job));
@@ -520,16 +529,24 @@ public partial class MainViewModel : ObservableObject, IConversionListener
     [RelayCommand]
     private void OpenDataFolder() => Tools.Open(Directory.CreateDirectory(AppPaths.Data).FullName);
 
+    /// <summary>Set by the app: replaces the main window with a fresh one (its fixed texts are read when it is built).</summary>
+    public Action? RebuildWindow { get; set; }
+
     [RelayCommand]
     private void SetLanguage(string code)
     {
-        if (IsBusy || (code == "ru") == L.Ru) return;
+        if ((code == "ru") == L.Ru) return;
         _settings.Language = code;
         _settings.Save();
 
-        // the UI strings are fixed at startup, so restart in the new language
-        if (Environment.ProcessPath is { } exe) Process.Start(exe);
-        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime d) d.Shutdown();
+        // no restart: the queue, the library and a running conversion stay; the window is rebuilt in the new language
+        L.Use(code);
+        RebuildWindow?.Invoke();
+        if (!IsBusy) Status = Setup.IsVisible ? L.SetupWaitStatus : L.Ready;
+        Sabers.RefreshUnity();
+        SystemCheck.Refresh();
+        RefreshEnvironment();
+        OnPropertyChanged(string.Empty);
     }
 
     [RelayCommand]

@@ -4,8 +4,8 @@ namespace SaberBridge.Core;
 
 public enum SaberState { NotConverted, Converted, OutputMissing }
 
-/// <summary>What a Quest entry is: a saber (.saber -> .whacker) or a note set (.bloq -> .cyoob).</summary>
-public enum QuestKind { Saber, Note }
+/// <summary>What a Quest entry is: a saber (.saber -> .whacker), a note set (.bloq -> .cyoob) or an avatar (.avatar -> .vrm for VRM Qavatars).</summary>
+public enum QuestKind { Saber, Note, Avatar }
 
 /// <summary>One PC saber the user added: where the original is and which Quest file was made from it.</summary>
 public sealed class SaberEntry
@@ -34,7 +34,19 @@ public sealed class SaberLibrary
     public static string DefaultOutputDir => AppPaths.QuestRoot;
 
     /// <summary>Sabers and notes go to their own folders under the Quest output folder.</summary>
-    public static string FolderFor(string root, QuestKind kind) => Path.Combine(root, kind == QuestKind.Note ? "Notes" : "Sabers");
+    public static string FolderFor(string root, QuestKind kind) => Path.Combine(root, kind switch
+    {
+        QuestKind.Note => "Notes",
+        QuestKind.Avatar => "Avatars",
+        _ => "Sabers",
+    });
+
+    public static QuestKind KindOf(string file) => Path.GetExtension(file).ToLowerInvariant() switch
+    {
+        ".bloq" => QuestKind.Note,
+        ".avatar" => QuestKind.Avatar,
+        _ => QuestKind.Saber,
+    };
 
     public static SaberLibrary Load()
     {
@@ -63,7 +75,7 @@ public sealed class SaberLibrary
         SaberEntry? existing = Entries.FirstOrDefault(e => string.Equals(e.SourcePath, full, StringComparison.OrdinalIgnoreCase));
         if (existing != null) return existing;
 
-        QuestKind kind = Path.GetExtension(full).Equals(".bloq", StringComparison.OrdinalIgnoreCase) ? QuestKind.Note : QuestKind.Saber;
+        QuestKind kind = KindOf(full);
         SaberEntry entry = new() { Name = Path.GetFileNameWithoutExtension(full), SourcePath = full, Kind = kind };
         Entries.Add(entry);
         Save();

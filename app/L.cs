@@ -6,7 +6,10 @@ namespace SaberBridge;
 /// <summary>UI strings: Russian when the system language is Russian, English otherwise.</summary>
 public static class L
 {
-    public static bool Ru { get; } = (Core.Settings.Load().Language ?? CultureInfo.CurrentUICulture.TwoLetterISOLanguageName) == "ru";
+    public static bool Ru { get; private set; } = (Core.Settings.Load().Language ?? CultureInfo.CurrentUICulture.TwoLetterISOLanguageName) == "ru";
+
+    /// <summary>Switches the language; the windows are rebuilt afterwards so their fixed texts follow.</summary>
+    public static void Use(string code) => Ru = code == "ru";
 
     private static string T(string ru, string en) => Ru ? ru : en;
 
@@ -44,7 +47,8 @@ public static class L
     public static string Skipped => T("пропущен", "skipped");
     public static string Unsupported => T("не поддерживается", "not supported");
 
-    public static string Ready => T("Готово к работе", "Ready");
+    // the same line on both tabs: Unity is ready and nothing waits
+    public static string Ready => T("Готово к конвертации. Оригиналы не изменяются и не перемещаются.", "Ready to convert. Originals are never changed or moved.");
     public static string Scanning => T("Разбираю файлы…", "Reading files…");
     public static string Finished(int ok, int failed) => T($"Готово! Аватаров: {ok}" + (failed > 0 ? $", ошибок: {failed}" : ""), $"Finished: {ok} avatars" + (failed > 0 ? $", {failed} failed" : ""));
     public static string InstalledTo(int n, string dir) => T($"Установлено в игру: {n}  →  {dir}", $"Installed {n} into {dir}");
@@ -84,9 +88,10 @@ public static class L
     public static string NoteDropHint => T(".bloq (ПК, Custom Notes)  →  .cyoob (Quest, Qosmetics)", ".bloq (PC, Custom Notes)  →  .cyoob (Quest, Qosmetics)");
     public static string NotesEmpty => T("Перетащи сюда ноты с ПК (.bloq) — они появятся в этом списке.", "Drop PC notes (.bloq) here; they will show up in this list.");
     public static string QuestQueue => T("Quest", "Quest");
-    public static string QuestDropTitle => T("Перетащи сюда сейберы и ноты", "Drop sabers and notes here");
-    public static string QuestDropHint => T(".saber → .whacker  ·  .bloq → .cyoob", ".saber → .whacker  ·  .bloq → .cyoob");
-    public static string QuestEmpty => T("Перетащи сюда сейберы (.saber) и ноты (.bloq) с ПК — сразу пачкой, вперемешку. Одна кнопка «Конвертировать» сделает всё.", "Drop PC sabers (.saber) and notes (.bloq) here, as many and as mixed as you like. One Convert press makes them all.");
+    public static string QuestDropTitle => T("Перетащи сюда сейберы, ноты и аватары", "Drop sabers, notes and avatars here");
+    public static string QuestDropHint => T(".saber → .whacker  ·  .bloq → .cyoob  ·  .avatar → .vrm", ".saber → .whacker  ·  .bloq → .cyoob  ·  .avatar → .vrm");
+    public static string QuestEmpty => T("Перетащи сюда сейберы (.saber), ноты (.bloq) и аватары (.avatar) с ПК — сразу пачкой, вперемешку. Одна кнопка «Конвертировать» сделает всё. Аватары становятся .vrm для мода VRM Qavatars.", "Drop PC sabers (.saber), notes (.bloq) and avatars (.avatar) here, as many and as mixed as you like. One Convert press makes them all. Avatars become .vrm for the VRM Qavatars mod.");
+    public static string AvatarNeedsGame => T("Чтобы прочитать .avatar, нужен Beat Saber на этом ПК с модом Custom Avatars (из него берутся FinalIK и DynamicBone). Укажи папку игры вверху.", "Reading .avatar files needs Beat Saber on this PC with the Custom Avatars mod (FinalIK and DynamicBone come from it). Choose the game folder with the Beat Saber button at the top.");
     public static string AddedToOtherQueue(int n, string tab) => T($"{n} файл(ов) добавлено в очередь «{tab}» — они ждут там.", $"{n} file(s) added to the {tab} queue; they wait there.");
     public static string ChkAndroid => T("Модуль Android для Unity", "Unity Android module");
     public static string ChkAndroidOk => T("Установлен: Unity может собирать файлы для Quest.", "Installed: Unity can build files for the Quest.");
@@ -95,7 +100,7 @@ public static class L
     public static string SaberDropTitle => T("Перетащи сейберы .saber сюда", "Drop .saber files here");
     public static string SaberDropHint => T(".saber (ПК)  →  .whacker (Quest, Qosmetics)", ".saber (PC)  →  .whacker (Quest, Qosmetics)");
     public static string SabersEmpty => T("Перетащи сюда сейберы с ПК (.saber) — они появятся в этом списке.", "Drop PC sabers (.saber) here; they will show up in this list.");
-    public static string QuestFolderHint => T("Готовые сейберы кладутся в подпапку Sabers, ноты — в Notes. Отсюда их ставишь на Quest через Mods Before Friday.", "Finished sabers go to the Sabers subfolder, notes to Notes. Install them on the Quest with Mods Before Friday.");
+    public static string QuestFolderHint => T("Готовые сейберы кладутся в подпапку Sabers, ноты — в Notes, аватары — в Avatars. Отсюда их ставишь на Quest через Mods Before Friday.", "Finished sabers go to the Sabers subfolder, notes to Notes, avatars to Avatars. Install them on the Quest with Mods Before Friday.");
     public static string QuestFolder => T("Папка для Quest", "Quest folder");
     public static string SaberConverted => T("сконвертирован", "converted");
     public static string SaberNotConverted => T("не сконвертирован", "not converted");
@@ -104,7 +109,8 @@ public static class L
     public static string SaberSummary(int all, int done, int missing) => T($"Всего {all} · готово {done}" + (missing > 0 ? $" · пропало {missing}" : ""), $"{all} total · {done} done" + (missing > 0 ? $" · {missing} missing" : ""));
     public static string SaberEngineNote => T("Оригиналы не изменяются и не перемещаются.", "Originals are never changed or moved.");
     public static string SaberNeedsUnity => T("Для конвертации нужен модуль Android Build Support для Unity 2021.3.16f1 (Unity Hub → Installs → ⚙ → Add modules). Оригиналы .saber не изменяются.", "Converting needs the Android Build Support module for Unity 2021.3.16f1 (Unity Hub → Installs → ⚙ → Add modules). Original .saber files are never changed.");
-    public static string SaberReady => T("Готово к конвертации. Оригиналы не изменяются и не перемещаются.", "Ready to convert. Originals are never changed or moved.");
+    public static string SaberReady => Ready;
+    public static string PickGame => T("Указать папку игры…", "Choose the game folder…");
     public static string SaberFirstRun => T("Первый запуск: Unity готовит проект для Quest, это несколько минут.", "First run: Unity is preparing the Quest project, this takes a few minutes.");
     public static string SaberConverting(string what) => T($"Конвертирую {what}", $"Converting {what}");
     public static string SaberFinished(int ok, int failed) => T($"Готово: {ok}" + (failed > 0 ? $", ошибок: {failed}" : "") + ". Файлы лежат в папке для Quest.", $"Done: {ok}" + (failed > 0 ? $", {failed} failed" : "") + ". The files are in the Quest folder.");

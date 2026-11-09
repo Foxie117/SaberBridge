@@ -3,7 +3,7 @@ using System.IO.Compression;
 
 namespace SaberBridge.Core;
 
-public enum JobKind { Vrm, Pmx, VrcPackage, Unsupported, Skipped, Saber, Note }
+public enum JobKind { Vrm, Pmx, VrcPackage, Unsupported, Skipped, Saber, Note, Avatar }
 
 public sealed record InputJob(JobKind Kind, string Name, string File, string Origin, string? Note = null);
 
@@ -45,6 +45,10 @@ public static class InputScanner
                 break;
             case ".bloq":
                 jobs.Add(new InputJob(JobKind.Note, name, path, origin));
+                break;
+            case ".avatar":
+                // a PC avatar for the Quest (VRM Qavatars): .avatar -> .vrm
+                jobs.Add(new InputJob(JobKind.Avatar, name, path, origin));
                 break;
             case ".unitypackage":
                 jobs.Add(new InputJob(JobKind.VrcPackage, name, path, origin));
