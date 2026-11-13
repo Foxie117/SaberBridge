@@ -84,7 +84,7 @@ public sealed class UnitySetup
     }
 
     /// <summary>Unity Hub only serves the sign-in for the license; with a license on the machine it is not needed.</summary>
-    private static bool HubNeeded => Tools.UnityHub() == null && !Tools.UnityLicenseFound();
+    public static bool HubNeeded => Tools.UnityHub() == null && !Tools.UnityLicenseFound();
 
     // Hub's installer said "done" but Hub was not found afterwards: installing it again would only loop (it reuses an
     // old folder we cannot see), so the next runs ask the user where it is instead. Kept for the app's lifetime.
@@ -220,7 +220,7 @@ public sealed class UnitySetup
         return false;
     }
 
-    private static bool VcRedistInstalled()
+    public static bool VcRedistInstalled()
     {
         try
         {
@@ -723,6 +723,7 @@ public sealed class UnitySetup
         {
             Directory.CreateDirectory(AppPaths.Logs);
             File.AppendAllText(_log, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {line}{Environment.NewLine}");
+            AppLog.Write("setup", line);
         }
         catch (Exception)
         {

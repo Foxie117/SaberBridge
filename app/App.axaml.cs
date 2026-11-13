@@ -14,6 +14,7 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            Core.AppLog.Start(Core.Updates.Current.ToString(3));
             MainViewModel vm = new();
             desktop.MainWindow = new MainWindow { DataContext = vm };
             vm.RebuildWindow = () =>

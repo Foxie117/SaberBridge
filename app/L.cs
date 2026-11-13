@@ -371,4 +371,72 @@ public static class L
     public static string Installing => T("Устанавливаю… (Windows может спросить разрешение)", "Installing… (Windows may ask for permission)");
     public static string WaitingForHub => T("Unity Hub открыт: подтверди установку там, потом нажми «Проверить снова».", "Unity Hub is open: confirm the install there, then press Check again.");
     public static string ActionFailed(string msg) => T($"Не получилось: {msg}", $"Failed: {msg}");
+
+    // ---- Unity while it starts, its dialogs
+    public static string UnityActivity(string phase, TimeSpan t)
+    {
+        string what = phase switch
+        {
+            "license" => T("проверяет лицензию", "checking the license"),
+            "engine" => T("загружается", "loading"),
+            "import" => T("проверяет файлы проекта", "checking the project files"),
+            "scripts" => T("компилирует скрипты", "compiling scripts"),
+            "shaders" => T("готовит шейдеры", "preparing shaders"),
+            "method" => T("запускает конвертер", "starting the converter"),
+            _ => T("запускается", "starting"),
+        };
+        return T($"Unity {what} · {(int)t.TotalMinutes}:{t.Seconds:00} (в фоне, окно не появится)", $"Unity is {what} · {(int)t.TotalMinutes}:{t.Seconds:00} (in the background, no window)");
+    }
+
+    public static string UnityDialog(string text) => T(
+        $"Unity остановилась на своём окне с вопросом, ответить на который некому: «{text}». Подробности — в журнале (Настройки → Журналы).",
+        $"Unity stopped at a dialog of its own that nobody can answer: \"{text}\". Details are in the log (Settings → Logs).");
+
+    // ---- logs
+    public static string LogsTitle => T("Журналы", "Logs");
+    public static string LogsHint => T("Программа записывает каждый шаг: запуски Unity, установку, ошибки. Если что-то зависло или сломалось — нажми «Собрать для отправки» и пришли получившийся zip.", "The app writes down every step: Unity runs, the setup, errors. If something hangs or breaks, press \"Collect for sending\" and send the zip.");
+    public static string ActOpenLogs => T("Открыть папку", "Open folder");
+    public static string ActCollectLogs => T("Собрать для отправки", "Collect for sending");
+    public static string LogsCollected(string name) => T($"Готово: {name} на рабочем столе", $"Done: {name} on the desktop");
+
+    // ---- first-run window
+    public static string FirstRunTitle => T("Первоначальная настройка", "First-time setup");
+    public static string ActFirstRun => T("Первоначальная настройка…", "First-time setup…");
+    public static string FirstRunIntro => T(
+        "Здесь по пунктам: что нужно программе, зачем, где оно стоит и что уже готово. Почти всё ставится само — от тебя нужны только разрешение Windows и один вход в аккаунт Unity. Окно можно открыть снова: Настройки → «Первоначальная настройка».",
+        "Item by item: what the app needs, why, where it is and what is ready. Almost everything installs by itself; only the Windows permission and one Unity sign-in need you. Open this window again any time: Settings → First-time setup.");
+    public static string ChecklistTitle => T("Что нужно и что уже есть", "What is needed and what is there");
+    public static string ActRecheck => T("Проверить снова", "Check again");
+    public static string CheckOk => T("готово", "ready");
+    public static string CheckMissing => T("нет", "missing");
+    public static string CheckOptional => T("не обязательно", "optional");
+    public static string CheckAuto => T("поставится само", "installs by itself");
+    public static string CheckWhere(string where) => T($"Где: {where}", $"Where: {where}");
+    public static string NotFound => T("не найдено", "not found");
+    public static string LicenseHere => T("файл лицензии есть на этом ПК", "a license file is on this PC");
+    public static string SetupNow => T("Сейчас", "Right now");
+
+    public static string ItemGame => T("Beat Saber для ПК", "Beat Saber for PC");
+    public static string ItemGameWhy => T(
+        "Нужна только для аватаров ПК и для .avatar → .vrm: из папки игры берутся библиотеки FinalIK и DynamicBone (они платные, программа не имеет права их раздавать). Для сейберов и нот на Quest игра не нужна.",
+        "Only for PC avatars and .avatar → .vrm: the FinalIK and DynamicBone libraries are taken from the game folder (they are paid, the app may not ship them). Quest sabers and notes don't need the game.");
+    public static string ItemUnity => T($"Unity {Compatibility.UnityVersion}", $"Unity {Compatibility.UnityVersion}");
+    public static string ItemUnityWhy => T(
+        "Файлы .avatar, .whacker и .cyoob — это пакеты Unity. Собрать их может только сама Unity той же версии, на которой сделана игра; поэтому ставится именно эта версия, а не новейшая. Программа ставит её сама, около 7 ГБ.",
+        "The .avatar, .whacker and .cyoob files are Unity packages. Only Unity itself, the same version the game is made with, can build them; that's why this exact version, not the newest. The app installs it by itself, about 7 GB.");
+    public static string ItemAndroid => T("Модуль Android для Unity", "Unity's Android module");
+    public static string ItemAndroidWhy => T("Quest работает на Android: без этого модуля Unity не соберёт файлы для Quest. Ставится вместе с Unity.", "The Quest runs Android: without this module Unity can't build Quest files. Installed together with Unity.");
+    public static string ItemVc => T("Microsoft Visual C++ Redistributable", "Microsoft Visual C++ Redistributable");
+    public static string ItemVcWhy => T("Системные библиотеки Microsoft, без которых Unity не запускается. Ставится сама, с сайта Microsoft.", "Microsoft's system libraries Unity can't start without. Installs by itself, from Microsoft.");
+    public static string ItemHub => T("Unity Hub", "Unity Hub");
+    public static string ItemHubWhy => T("Нужен только для того, чтобы войти в аккаунт Unity и получить лицензию. Сама конвертация идёт без него; когда лицензия уже есть, Hub не обязателен.", "Only to sign in to a Unity account and get the license. Converting itself works without it; once there is a license, Hub is optional.");
+    public static string ItemLicense => T("Бесплатная лицензия Unity Personal", "Free Unity Personal license");
+    public static string ItemLicenseWhy => T(
+        "Зачем лицензия: редактор Unity вообще не запускается без лицензии — так устроена сама Unity, это не требование программы. Personal бесплатна для личного использования, выдаётся на твой аккаунт Unity и хранится на этом ПК. Пароль вводишь только ты в Unity Hub — программа его не видит и никуда не отправляет. Как: Unity Hub → «Sign in» → шестерёнка → Licenses → Add → «Get a free personal license». Нужно один раз.",
+        "Why a license: the Unity editor won't start without one at all; that's how Unity works, not something the app asks for. Personal is free for personal use, issued to your Unity account and kept on this PC. Only you type the password, in Unity Hub; the app never sees or sends it. How: Unity Hub → Sign in → the gear → Licenses → Add → Get a free personal license. Once.");
+    public static string ItemQuestProject => T("Проект для Quest подготовлен", "Quest project prepared");
+    public static string ItemQuestProjectWhy => T("Первый запуск Unity импортирует рабочий проект программы: 1–10 минут, один раз. Потом каждый запуск занимает около минуты. Unity работает в фоне — её окно не появляется.", "Unity's first start imports the app's project: 1–10 minutes, once. After that each start takes about a minute. Unity runs in the background, its window doesn't appear.");
+    public static string ItemPcProject => T("Проект для ПК подготовлен", "PC project prepared");
+    public static string ItemPcProjectWhy => T("То же для аватаров ПК и .avatar → .vrm: готовится при первой такой конвертации, 5–10 минут, один раз.", "The same for PC avatars and .avatar → .vrm: prepared on the first such conversion, 5–10 minutes, once.");
+    public static string FirstRunStepsTitle => T("Как идёт установка", "How the setup goes");
 }

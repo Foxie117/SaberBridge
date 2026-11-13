@@ -105,9 +105,14 @@ public sealed class UnityResult
 
     /// <summary>Unity stopped because it has no working license (as opposed to any other failure).</summary>
     public bool LicenseProblem => Problem != null && Problem.Contains("license", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The converter printed at least one line, so Unity itself started and opened the project.</summary>
+    public bool ConverterStarted { get; set; }
+
+    public const string Stuck = "Unity stopped responding (no progress for 20 minutes). See the log.";
 }
 
-/// <summary>Runs Unity in batch mode and streams the converter's "[VRM2BS]" log lines.</summary>
+/// <summary>Runs Unity (batch mode, or a hidden editor out of sight) and streams the converter's "[VRM2BS]" / "[SB]" log lines.</summary>
 public static class UnityRunner
 {
     private static readonly (string Needle, string Message)[] KnownProblems =
@@ -121,6 +126,22 @@ public static class UnityRunner
         ("Multiple Unity instances cannot open the same project", "The converter's Unity project is open in another Unity window. Close it and try again."),
         ("build target was unsupported", "Unity cannot build for Windows. In Unity Hub add the module \"Windows Build Support (Mono)\" to this editor."),
         ("error CS", "The converter scripts failed to compile (see the log)."),
+    };
+
+    // what Unity is busy with before the converter starts, read from its own log (Unity 2021.3 wording)
+    private static readonly (string Needle, string Phase)[] Phases =
+    {
+        ("[Licensing::", "license"),
+        ("LicensingClient", "license"),
+        ("Initialize engine version", "engine"),
+        ("Refreshing native plugins", "import"),
+        ("Asset Pipeline Refresh", "import"),
+        ("Start importing", "import"),
+        ("Starting script compilation", "scripts"),
+        ("Begin MonoManager ReloadAssembly", "scripts"),
+        ("Compiling shader", "shaders"),
+        ("Launching external process", "import"),
+        ("Invoking ", "method"),
     };
 
     // one Unity at a time: two editors cannot open the same project
@@ -137,6 +158,22 @@ public static class UnityRunner
     /// <summary>Raised when the runner switched to the hidden-window mode by itself (to save it in the settings).</summary>
     public static event Action<bool>? HiddenWindowModeChanged;
 
+    /// <summary>
+    /// The hidden-window editor runs on a desktop of its own that is never shown, so its splash, progress bars and
+    /// anything it opens (Unity Hub for the license included) never pop up over the user's windows. Turned off by
+    /// itself (and remembered) when Unity could not work there.
+    /// </summary>
+    public static bool OwnDesktop { get; set; } = true;
+
+    /// <summary>Raised when Unity failed on its own desktop but worked with hidden windows (to save it in the settings).</summary>
+    public static event Action? OwnDesktopFailed;
+
+    /// <summary>
+    /// Until the converter prints its first line: what Unity is doing ("license", "import", "scripts", ...) and for how
+    /// long it has been running, about once a second; so "Starting Unity" never looks frozen.
+    /// </summary>
+    public static event Action<string, TimeSpan>? Activity;
+
     public static async Task<UnityResult> RunAsync(string unityExe, string method, IEnumerable<string> extraArgs, Action<string> onLine, Action<string> onRaw, CancellationToken ct, string? projectPath = null)
     {
         await Lock.WaitAsync(ct);
@@ -148,6 +185,7 @@ public static class UnityRunner
             // no license in batch mode, though Unity Hub has one: try once as a hidden normal editor, and keep that mode
             if (!HiddenWindowMode && r.LicenseProblem && OperatingSystem.IsWindows() && Tools.UnityLicenseFound())
             {
+                AppLog.Write("unity", "no license in batch mode while a license file exists: trying the hidden editor");
                 UnityResult hidden = await RunLockedAsync(unityExe, method, args, onLine, onRaw, ct, project, true);
                 if (!hidden.LicenseProblem)
                 {
@@ -168,7 +206,30 @@ public static class UnityRunner
 
     private static string Quote(string a) => a.Length > 0 && a.IndexOfAny(new[] { ' ', '"', '\t' }) < 0 ? a : "\"" + a.Replace("\"", "\\\"") + "\"";
 
-    private static async Task<UnityResult> RunLockedAsync(string unityExe, string method, IEnumerable<string> extraArgs, Action<string> onLine, Action<string> onRaw, CancellationToken ct, string projectPath, bool hiddenWindow)
+    private static async Task<UnityResult> RunLockedAsync(string unityExe, string method, List<string> extraArgs, Action<string> onLine, Action<string> onRaw, CancellationToken ct, string projectPath, bool hiddenWindow)
+    {
+        bool ownDesktop = hiddenWindow && OwnDesktop && OperatingSystem.IsWindows();
+        UnityResult r = await RunOnceAsync(unityExe, method, extraArgs, onLine, onRaw, ct, projectPath, hiddenWindow, ownDesktop);
+        // Unity died on its own desktop before the converter said anything (a GPU or driver that wants the visible
+        // desktop): once more with plain hidden windows, and stay with that if it works
+        if (ownDesktop && !r.ConverterStarted && !r.LicenseProblem && r.Problem is null or UnityResult.Stuck)
+        {
+            AppLog.Write("unity", $"nothing from the converter on Unity's own desktop (exit {r.ExitCode}, problem {r.Problem ?? "none"}): retrying with hidden windows");
+            UnityResult plain = await RunOnceAsync(unityExe, method, extraArgs, onLine, onRaw, ct, projectPath, true, false);
+            if (plain.ConverterStarted)
+            {
+                AppLog.Write("unity", "hidden windows worked where the own desktop did not: keeping hidden windows");
+                OwnDesktop = false;
+                OwnDesktopFailed?.Invoke();
+            }
+
+            return plain;
+        }
+
+        return r;
+    }
+
+    private static async Task<UnityResult> RunOnceAsync(string unityExe, string method, IEnumerable<string> extraArgs, Action<string> onLine, Action<string> onRaw, CancellationToken ct, string projectPath, bool hiddenWindow, bool ownDesktop)
     {
         Directory.CreateDirectory(AppPaths.Logs);
         string log = Path.Combine(AppPaths.Logs, $"unity-{DateTime.Now:yyyyMMdd-HHmmss-fff}.log");
@@ -178,19 +239,45 @@ public static class UnityRunner
         args.AddRange(new[] { "-quit", "-projectPath", projectPath, "-logFile", log, "-executeMethod", method });
         args.AddRange(extraArgs);
 
-        ProcessStartInfo psi = hiddenWindow
-            // a normal editor start, its window hidden; -quit still closes it after the method
-            ? new ProcessStartInfo(unityExe, string.Join(" ", args.Select(Quote))) { UseShellExecute = true, WindowStyle = ProcessWindowStyle.Hidden }
-            : new ProcessStartInfo(unityExe) { UseShellExecute = false, CreateNoWindow = true };
-        if (!hiddenWindow)
+        string mode = !hiddenWindow ? "batch" : ownDesktop ? "hidden editor on its own desktop" : "hidden editor windows";
+        AppLog.Write("unity", $"start ({mode}): {unityExe} {string.Join(" ", args.Select(Quote))}");
+        bool hubWasRunning = UnityDesktop.HubRunning();
+
+        Process p;
+        if (ownDesktop && UnityDesktop.Start(unityExe, args.Select(Quote)) is { } started)
         {
-            foreach (string a in args) psi.ArgumentList.Add(a);
+            p = started;
+        }
+        else
+        {
+            if (ownDesktop)
+            {
+                AppLog.Write("unity", "could not start Unity on its own desktop: using hidden windows");
+                ownDesktop = false;
+            }
+
+            ProcessStartInfo psi = hiddenWindow
+                // a normal editor start, its window hidden; -quit still closes it after the method
+                ? new ProcessStartInfo(unityExe, string.Join(" ", args.Select(Quote))) { UseShellExecute = true, WindowStyle = ProcessWindowStyle.Hidden }
+                : new ProcessStartInfo(unityExe) { UseShellExecute = false, CreateNoWindow = true };
+            if (!hiddenWindow)
+            {
+                foreach (string a in args) psi.ArgumentList.Add(a);
+            }
+
+            p = Process.Start(psi) ?? throw new InvalidOperationException("Unity did not start");
         }
 
-        using Process p = Process.Start(psi) ?? throw new InvalidOperationException("Unity did not start");
+        using Process proc = p;
+        AppLog.Write("unity", $"pid {proc.Id}, log {log}");
+        DateTime started0 = DateTime.UtcNow;
         UnityResult result = new() { ExitCode = -1 };
         long pos = 0;
         string partial = "";
+        string phase = "start";
+        string lastRaw = "";
+        HashSet<string> seenWindows = new();
+        HashSet<string> seenPhases = new();
 
         void Pump()
         {
@@ -207,88 +294,127 @@ public static class UnityRunner
             {
                 string line = raw.TrimEnd('\r');
                 result.Lines.Add(line);
+                if (line.Length > 0) lastRaw = line;
                 onRaw(line);
                 foreach (var (needle, message) in KnownProblems)
                 {
-                    if (result.Problem == null && line.Contains(needle, StringComparison.OrdinalIgnoreCase)) result.Problem = message;
+                    if (result.Problem == null && line.Contains(needle, StringComparison.OrdinalIgnoreCase))
+                    {
+                        result.Problem = message;
+                        AppLog.Write("unity", $"problem: {message} (line: {Cut(line)})");
+                    }
+                }
+
+                foreach (var (needle, ph) in Phases)
+                {
+                    if (line.Contains(needle, StringComparison.Ordinal) && ph != phase)
+                    {
+                        phase = ph;
+                        // Unity goes back and forth between importing and compiling: the first time of each is enough
+                        if (seenPhases.Add(ph)) AppLog.Write("unity", $"phase {ph} at {Elapsed()}");
+                        break;
+                    }
                 }
 
                 int i = line.IndexOf("[VRM2BS] ", StringComparison.Ordinal);
                 int q = line.IndexOf("[SB] ", StringComparison.Ordinal);
-                if (i >= 0) onLine(line[(i + 9)..]);
-                else if (q >= 0) onLine(line[(q + 5)..]);
+                string? ours = i >= 0 ? line[(i + 9)..] : q >= 0 ? line[(q + 5)..] : null;
+                if (ours == null) continue;
+                if (!result.ConverterStarted) AppLog.Write("unity", $"converter started at {Elapsed()}");
+                result.ConverterStarted = true;
+                if (ours.StartsWith("OK ") || ours.StartsWith("FAIL ") || ours.StartsWith("BEGIN ")) AppLog.Write("unity", Cut(ours));
+                onLine(ours);
             }
+        }
+
+        string Elapsed() => (DateTime.UtcNow - started0).ToString(@"m\:ss");
+
+        // the windows Unity has open: hide them (hidden-window mode) and write down each new one; a Windows dialog
+        // (#32770) is Unity asking something nobody can answer, its text goes to the log and to the user
+        string? Look()
+        {
+            if (!OperatingSystem.IsWindows() || !hiddenWindow) return null;
+            string? dialog = null;
+            foreach (UnityDesktop.Win w in ownDesktop ? UnityDesktop.Windows() : UnityDesktop.WindowsOf(UnityDesktop.Tree(proc.Id)))
+            {
+                if (!ownDesktop && w.Visible) UnityDesktop.Hide(w.Handle);
+                if (w.IsNoise) continue;
+                // a progress window retitles itself every second ("busy for 12s"): one line per kind of window
+                string key = $"{w.Process}|{w.Class}|{(w.Progress ? "progress" : w.Title)}";
+                if (seenWindows.Add(key)) AppLog.Write("unity", $"window: {w.Process} \"{w.Title}\" [{w.Class}{(w.Progress ? ", progress" : "")}]{(w.Text.Length > 0 ? " text: " + Cut(w.Text) : "")}");
+                if (w.IsQuestion) dialog = (w.Title + ": " + w.Text).Trim(' ', ':');
+            }
+
+            return dialog;
         }
 
         try
         {
-            // a hidden editor that sits on a dialog nobody can see would wait forever: give up after 20 quiet minutes
-            DateTime lastGrowth = DateTime.UtcNow;
+            // nothing new in the log for a long time: Unity waits for something. A dialog gets 2 minutes (nobody can
+            // see it), anything else 20 (a first import can be quiet for a long while)
+            DateTime lastGrowth = DateTime.UtcNow, lastBeat = DateTime.UtcNow, lastActivity = DateTime.MinValue;
             long lastPos = 0;
-            while (!p.HasExited)
+            int tick = 0;
+            while (!proc.HasExited)
             {
-                await Task.Delay(400, ct);
-                // a normal editor still shows its splash and progress windows even when started hidden
-                if (hiddenWindow && OperatingSystem.IsWindows()) HiddenWindows.HideAll(p.Id);
+                // fast at first so a window shown with hidden windows is put away before it is noticed
+                await Task.Delay(tick++ < 100 ? 100 : 400, ct);
+                string? dialog = Look();
                 Pump();
                 if (pos != lastPos)
                 {
                     lastPos = pos;
                     lastGrowth = DateTime.UtcNow;
                 }
-                else if (hiddenWindow && DateTime.UtcNow - lastGrowth > TimeSpan.FromMinutes(20))
+
+                if (!result.ConverterStarted && DateTime.UtcNow - lastActivity > TimeSpan.FromSeconds(1))
                 {
-                    try { p.Kill(true); } catch (Exception) { /* already gone */ }
-                    result.Problem ??= "Unity stopped responding (no progress for 20 minutes). See the log.";
+                    lastActivity = DateTime.UtcNow;
+                    Activity?.Invoke(phase, DateTime.UtcNow - started0);
+                }
+
+                if (DateTime.UtcNow - lastBeat > TimeSpan.FromSeconds(30))
+                {
+                    lastBeat = DateTime.UtcNow;
+                    AppLog.Write("unity", $"running {Elapsed()}, phase {phase}, log {pos / 1024} KB, quiet {(int)(DateTime.UtcNow - lastGrowth).TotalSeconds} s, last: {Cut(lastRaw)}");
+                }
+
+                TimeSpan quiet = DateTime.UtcNow - lastGrowth;
+                if (dialog != null && quiet > TimeSpan.FromMinutes(2))
+                {
+                    AppLog.Write("unity", $"stuck on a dialog: {dialog}");
+                    try { proc.Kill(true); } catch (Exception) { /* already gone */ }
+                    result.Problem ??= L.UnityDialog(dialog);
+                    break;
+                }
+
+                if (hiddenWindow && quiet > TimeSpan.FromMinutes(20))
+                {
+                    AppLog.Write("unity", $"no progress for 20 minutes, giving up; last: {Cut(lastRaw)}");
+                    try { proc.Kill(true); } catch (Exception) { /* already gone */ }
+                    result.Problem ??= UnityResult.Stuck;
                     break;
                 }
             }
         }
         catch (OperationCanceledException)
         {
-            try { p.Kill(true); } catch (Exception) { /* already gone */ }
+            AppLog.Write("unity", "cancelled");
+            try { proc.Kill(true); } catch (Exception) { /* already gone */ }
             throw;
+        }
+        finally
+        {
+            // Unity Hub started by this run on Unity's own desktop would stay there, unseen, and keep the real one
+            // from opening: close it (Unity started it only to hand over the license)
+            if (ownDesktop && !hubWasRunning) UnityDesktop.CloseHubOnOwnDesktop();
         }
 
         Pump();
-        result.ExitCode = p.HasExited ? p.ExitCode : -1;
+        result.ExitCode = proc.HasExited ? proc.ExitCode : -1;
+        AppLog.Write("unity", $"finished in {Elapsed()}, exit {result.ExitCode}, converter {(result.ConverterStarted ? "ran" : "never started")}, problem {result.Problem ?? "none"}; last: {Cut(lastRaw)}");
         return result;
     }
-}
 
-/// <summary>Hides every visible top-level window of a process (Unity's splash and progress windows).</summary>
-internal static class HiddenWindows
-{
-    private delegate bool EnumProc(IntPtr hwnd, IntPtr lParam);
-
-    [System.Runtime.InteropServices.DllImport("user32.dll")]
-    private static extern bool EnumWindows(EnumProc proc, IntPtr lParam);
-
-    [System.Runtime.InteropServices.DllImport("user32.dll")]
-    private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
-
-    [System.Runtime.InteropServices.DllImport("user32.dll")]
-    private static extern bool IsWindowVisible(IntPtr hwnd);
-
-    [System.Runtime.InteropServices.DllImport("user32.dll")]
-    private static extern bool ShowWindow(IntPtr hwnd, int cmd);
-
-    private const int SwHide = 0;
-
-    public static void HideAll(int processId)
-    {
-        try
-        {
-            EnumWindows((hwnd, _) =>
-            {
-                GetWindowThreadProcessId(hwnd, out uint pid);
-                if (pid == processId && IsWindowVisible(hwnd)) ShowWindow(hwnd, SwHide);
-                return true;
-            }, IntPtr.Zero);
-        }
-        catch (Exception)
-        {
-            // cosmetic only
-        }
-    }
+    private static string Cut(string s) => s.Length > 300 ? s[..300] + "…" : s;
 }

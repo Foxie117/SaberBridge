@@ -111,3 +111,51 @@ public sealed class SetupGuide
         foreach (UnitySetup.DiskRow r in plan.Rows) Disks.Add(new DiskRowView(r));
     }
 }
+
+public enum CheckState { Ok, Missing, Auto, Optional }
+
+/// <summary>One line of the first-run checklist: what it is, why the app needs it, where it is, and whether it is there.</summary>
+public sealed class ChecklistItem
+{
+    public ChecklistItem(string title, string why, string? where, CheckState state, string? actionText = null, System.Windows.Input.ICommand? action = null)
+    {
+        Title = title;
+        Why = why;
+        Where = L.CheckWhere(where ?? L.NotFound);
+        State = state;
+        ActionText = actionText ?? "";
+        Action = action;
+    }
+
+    public string Title { get; }
+    public string Why { get; }
+    public string Where { get; }
+    public CheckState State { get; }
+    public string ActionText { get; }
+    public System.Windows.Input.ICommand? Action { get; }
+    public bool HasAction => Action != null;
+
+    public string Mark => State switch
+    {
+        CheckState.Ok => "✓",
+        CheckState.Missing => "!",
+        CheckState.Auto => "↓",
+        _ => "–",
+    };
+
+    public string StateText => State switch
+    {
+        CheckState.Ok => L.CheckOk,
+        CheckState.Missing => L.CheckMissing,
+        CheckState.Auto => L.CheckAuto,
+        _ => L.CheckOptional,
+    };
+
+    public IBrush MarkBrush => State switch
+    {
+        CheckState.Ok => Brush.Parse("#3DDC97"),
+        CheckState.Missing => Brush.Parse("#FF3B5C"),
+        CheckState.Auto => Brush.Parse("#2F8CFF"),
+        _ => Brush.Parse("#3A3F58"),
+    };
+}

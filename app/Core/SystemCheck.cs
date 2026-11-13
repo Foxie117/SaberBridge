@@ -263,6 +263,20 @@ public static class Tools
         return Directory.Exists(engines) && Directory.GetDirectories(engines).Any(d => Path.GetFileName(d).Equals("WindowsStandaloneSupport", StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>Opens Explorer with the file selected (Windows); elsewhere opens its folder.</summary>
+    public static void Reveal(string file)
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows()) Process.Start("explorer.exe", $"/select,\"{file}\"");
+            else Open(Path.GetDirectoryName(file)!);
+        }
+        catch (Exception)
+        {
+            // nothing to show then
+        }
+    }
+
     public static void Open(string pathOrUrl)
     {
         try

@@ -30,6 +30,73 @@ public partial class SetupViewModel : ObservableObject
     /// <summary>The steps and disk table of the guide window.</summary>
     public SetupGuide Guide { get; } = new();
 
+    /// <summary>The first-run checklist: every piece the app needs, why, where it is and whether it is there.</summary>
+    public System.Collections.ObjectModel.ObservableCollection<ChecklistItem> Checklist { get; } = new();
+
+    /// <summary>Set by the main window: asks for the Beat Saber folder.</summary>
+    public Func<Task>? PickGameFolder { get; set; }
+
+    [RelayCommand]
+    private void RefreshChecklist()
+    {
+        Checklist.Clear();
+        string? game = _main.SelectedGame?.Path;
+        string? unity = UnityLocator.Find(_settings.UnityPath);
+        bool android = unity != null && UnityLocator.HasAndroid(unity);
+        string? hub = Tools.UnityHub();
+        bool license = Tools.UnityLicenseFound();
+        bool win = OperatingSystem.IsWindows();
+
+        Checklist.Add(new ChecklistItem(L.ItemGame, L.ItemGameWhy, game, game != null ? CheckState.Ok : CheckState.Optional,
+            game == null ? L.PickGame : null, game == null ? PickGameCommand : null));
+        Checklist.Add(new ChecklistItem(L.ItemUnity, L.ItemUnityWhy, unity != null ? Path.GetDirectoryName(Path.GetDirectoryName(unity)) : null,
+            unity != null ? CheckState.Ok : win ? CheckState.Auto : CheckState.Missing));
+        Checklist.Add(new ChecklistItem(L.ItemAndroid, L.ItemAndroidWhy,
+            android ? Path.Combine(Path.GetDirectoryName(unity!)!, "Data", "PlaybackEngines", "AndroidPlayer") : null,
+            android ? CheckState.Ok : win ? CheckState.Auto : CheckState.Missing));
+        if (win)
+        {
+            bool vc = UnitySetup.VcRedistInstalled();
+            Checklist.Add(new ChecklistItem(L.ItemVc, L.ItemVcWhy, vc ? "Windows" : null, vc ? CheckState.Ok : CheckState.Auto));
+        }
+
+        Checklist.Add(new ChecklistItem(L.ItemHub, L.ItemHubWhy, hub, hub != null ? CheckState.Ok : UnitySetup.HubNeeded ? CheckState.Auto : CheckState.Optional,
+            hub == null && win ? L.ActPickHub : null, hub == null && win ? PickHubCommand : null));
+        Checklist.Add(new ChecklistItem(L.ItemLicense, L.ItemLicenseWhy, license ? L.LicenseHere : null, license ? CheckState.Ok : CheckState.Missing,
+            license ? null : hub != null ? L.ActSignIn : L.ActCreateAccount, license ? null : hub != null ? OpenHubCommand : CreateAccountCommand));
+        Checklist.Add(new ChecklistItem(L.ItemQuestProject, L.ItemQuestProjectWhy, ProjectSetup.IsQuestImported ? AppPaths.QuestProject : null,
+            ProjectSetup.IsQuestImported ? CheckState.Ok : CheckState.Auto));
+        Checklist.Add(new ChecklistItem(L.ItemPcProject, L.ItemPcProjectWhy, !ProjectSetup.IsFirstImport ? AppPaths.UnityProject : null,
+            !ProjectSetup.IsFirstImport ? CheckState.Ok : game != null ? CheckState.Auto : CheckState.Optional));
+    }
+
+    [RelayCommand]
+    private async Task PickGame()
+    {
+        if (PickGameFolder != null) await PickGameFolder();
+        RefreshChecklist();
+    }
+
+    [ObservableProperty] private string _logsResult = "";
+
+    [RelayCommand]
+    private async Task CollectLogs()
+    {
+        try
+        {
+            string zip = await Task.Run(() => AppLog.Collect(Updates.Current.ToString(3)));
+            LogsResult = L.LogsCollected(Path.GetFileName(zip));
+            Tools.Reveal(zip);
+        }
+        catch (Exception e)
+        {
+            LogsResult = L.ActionFailed(e.Message);
+        }
+    }
+
+    [RelayCommand]
+    private void OpenLogs() => Tools.Open(Directory.CreateDirectory(AppPaths.Logs).FullName);
+
     /// <summary>Opens the guide window (set by the main window).</summary>
     public Action? OpenGuideWindow { get; set; }
 
@@ -64,6 +131,8 @@ public partial class SetupViewModel : ObservableObject
         _settings.UnityHubPath = exe;
         _settings.Save();
         Tools.UnityHubOverride = exe;
+        AppLog.Write("setup", $"Unity Hub picked by hand: {exe}");
+        RefreshChecklist();
         StartIfNeeded();
     }
 
@@ -136,6 +205,7 @@ public partial class SetupViewModel : ObservableObject
                 _main.Sabers.RefreshUnity();
                 _main.Status = ok ? L.Ready : L.SetupWaitStatus;
                 Changed();
+                RefreshChecklist();
                 if (ok) _ = HideSoon();
             });
         });
@@ -151,6 +221,7 @@ public partial class SetupViewModel : ObservableObject
     {
         if (_setup?.Plan is { } plan) ShowPlan(plan);
         Guide.Apply(s.Step);
+        if (s.Step != Step || s.Step is SetupStep.Failed or SetupStep.Ready) RefreshChecklist();
         Step = s.Step;
         Text = s.Text;
         Error = s.Error;

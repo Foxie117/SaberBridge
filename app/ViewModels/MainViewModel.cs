@@ -39,6 +39,21 @@ public partial class MainViewModel : ObservableObject, IConversionListener
         Tools.UnityHubOverride = _settings.UnityHubPath;
         Setup = new SetupViewModel(this, _settings);
         UnityRunner.HiddenWindowMode = _settings.UnityHiddenWindow;
+        UnityRunner.OwnDesktop = !_settings.UnityOwnDesktopFailed;
+        UnityRunner.OwnDesktopFailed += () =>
+        {
+            _settings.UnityOwnDesktopFailed = true;
+            _settings.Save();
+        };
+        // while Unity starts (before the converter says anything) the status shows what it is doing and for how long
+        UnityRunner.Activity += (phase, elapsed) => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            string text = L.UnityActivity(phase, elapsed);
+            if (IsBusy) SubStatus = text;
+            if (Sabers.IsBusy) Sabers.Status = text;
+        });
+        AppLog.Write("app", $"unity {UnityLocator.Find(_settings.UnityPath) ?? "none"}, hub {Tools.UnityHub() ?? "none"}, license {(Tools.UnityLicenseFound() ? "found" : "none")}, " +
+                            $"hidden editor {_settings.UnityHiddenWindow}, own desktop {!_settings.UnityOwnDesktopFailed}, quest project {(ProjectSetup.IsQuestImported ? "ready" : "not prepared")}");
         UnityRunner.HiddenWindowModeChanged += on =>
         {
             _settings.UnityHiddenWindow = on;
@@ -532,6 +547,47 @@ public partial class MainViewModel : ObservableObject, IConversionListener
 
     [RelayCommand]
     private void OpenDataFolder() => Tools.Open(Directory.CreateDirectory(AppPaths.Data).FullName);
+
+    [RelayCommand]
+    private void OpenLogsFolder() => Tools.Open(Directory.CreateDirectory(AppPaths.Logs).FullName);
+
+    [ObservableProperty] private string _logsResult = "";
+
+    /// <summary>One zip with everything needed to understand a problem, put on the desktop and shown in Explorer.</summary>
+    [RelayCommand]
+    private async Task CollectLogs()
+    {
+        try
+        {
+            string zip = await Task.Run(() => AppLog.Collect(Updates.Current.ToString(3)));
+            LogsResult = L.LogsCollected(Path.GetFileName(zip));
+            Tools.Reveal(zip);
+        }
+        catch (Exception e)
+        {
+            LogsResult = L.ActionFailed(e.Message);
+        }
+    }
+
+    /// <summary>The very first start: the first-run window opens by itself, once.</summary>
+    public bool FirstRunPending => !_settings.FirstRunGuideShown;
+
+    public void ShowFirstRun()
+    {
+        if (_settings.FirstRunGuideShown) return;
+        _settings.FirstRunGuideShown = true;
+        _settings.Save();
+        Setup.OpenGuideWindow?.Invoke();
+    }
+
+    [RelayCommand]
+    private void OpenFirstRun()
+    {
+        ShowSettings = false;
+        Setup.OpenGuideWindow?.Invoke();
+    }
+
+    partial void OnStatusChanged(string value) => AppLog.Write("pc", value);
 
     /// <summary>Set by the app: replaces the main window with a fresh one (its fixed texts are read when it is built).</summary>
     public Action? RebuildWindow { get; set; }

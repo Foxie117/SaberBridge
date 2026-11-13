@@ -134,6 +134,12 @@ public partial class SabersViewModel : ObservableObject, IDisposable
     /// <summary>How many entries wait for Convert (shown on the Quest tab button).</summary>
     [ObservableProperty] private int _pending;
     [ObservableProperty] private string _status = "";
+
+    // the journal keeps every status the Quest tab showed, minus the once-a-second Unity timer
+    partial void OnStatusChanged(string value)
+    {
+        if (!value.Contains(" · ")) AppLog.Write("quest", value);
+    }
     [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(ConvertCommand))] private bool _isBusy;
     [ObservableProperty] private string? _questUnity;
 

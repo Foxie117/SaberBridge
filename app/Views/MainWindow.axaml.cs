@@ -43,10 +43,13 @@ public partial class MainWindow : Window
                     return;
                 }
 
+                vm.Setup.RefreshChecklistCommand.Execute(null);
                 _setupWindow = new SetupWindow { DataContext = vm.Setup };
                 _setupWindow.Show(this);
             };
             vm.Setup.CloseGuideWindow = () => _setupWindow?.Close();
+            vm.Setup.PickGameFolder = () => vm.PickGameAsync();
+            if (vm.FirstRunPending) Opened += (_, _) => vm.ShowFirstRun();
             vm.Setup.PickHubFile = async () =>
             {
                 var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions

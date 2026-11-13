@@ -4,7 +4,7 @@
         xmlns:app="using:SaberBridge"
         x:Class="SaberBridge.Views.SetupWindow"
         x:DataType="vm:SetupViewModel"
-        Title="{x:Static app:L.GuideWindowTitle}"
+        Title="{x:Static app:L.FirstRunTitle}"
         Icon="/Assets/icon.ico"
         Width="880" Height="760" MinWidth="680" MinHeight="520"
         Background="{StaticResource Bg}"
@@ -15,9 +15,75 @@
 
       <!-- what this is about -->
       <StackPanel Spacing="6">
-        <TextBlock Text="{x:Static app:L.GuideWindowTitle}" FontSize="22" FontWeight="Bold" />
+        <TextBlock Text="{x:Static app:L.FirstRunTitle}" FontSize="22" FontWeight="Bold" />
+        <TextBlock Classes="muted" Text="{x:Static app:L.FirstRunIntro}" TextWrapping="Wrap" />
         <TextBlock Classes="muted" Text="{x:Static app:L.GuideIntro}" TextWrapping="Wrap" />
       </StackPanel>
+
+      <!-- live status, while the setup runs -->
+      <Border Classes="card" Padding="16,12" IsVisible="{Binding IsVisible}" BorderBrush="#2F8CFF" BorderThickness="1">
+        <StackPanel Spacing="6">
+          <TextBlock Classes="muted" Text="{x:Static app:L.SetupNow}" FontSize="12" />
+          <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+          <TextBlock Classes="muted" Text="{Binding Text}" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding Detail}" FontSize="12" TextWrapping="Wrap" IsVisible="{Binding HasDetail}" />
+          <TextBlock Text="{Binding Error}" Foreground="{StaticResource Warn}" TextWrapping="Wrap" IsVisible="{Binding HasError}" />
+          <ProgressBar Value="{Binding Percent}" IsIndeterminate="{Binding !PercentKnown}" Height="6" MinHeight="6" IsVisible="{Binding !IsError}" />
+          <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+            <Button Classes="ghost" Content="{x:Static app:L.ActSkip}" Command="{Binding SkipCommand}" IsVisible="{Binding CanSkip}" />
+            <Button Classes="primary" Content="{x:Static app:L.ActAllow}" Command="{Binding AllowCommand}" IsVisible="{Binding ShowAllow}" />
+            <Button Classes="primary" Content="{x:Static app:L.ActSignIn}" Command="{Binding OpenHubCommand}" IsVisible="{Binding ShowHub}" />
+            <Button Classes="primary" Content="{x:Static app:L.ActPickHub}" Command="{Binding PickHubCommand}" IsVisible="{Binding CanPickHub}" />
+            <Button Classes="primary" Content="{x:Static app:L.ActRetry}" Command="{Binding RetryCommand}" IsVisible="{Binding ShowRetry}" />
+            <Button Classes="ghost" Content="{x:Static app:L.ActLog}" Command="{Binding OpenLogCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <!-- the checklist -->
+      <Border Classes="card" Padding="16,12">
+        <StackPanel Spacing="10">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="{x:Static app:L.ChecklistTitle}" FontWeight="SemiBold" FontSize="16" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Classes="ghost" Content="{x:Static app:L.ActRecheck}" Command="{Binding RefreshChecklistCommand}" />
+          </Grid>
+          <ItemsControl ItemsSource="{Binding Checklist}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:ChecklistItem">
+                <Grid ColumnDefinitions="40,*,Auto" Margin="0,6">
+                  <Border Width="28" Height="28" CornerRadius="14" Background="{Binding MarkBrush}" VerticalAlignment="Top">
+                    <TextBlock Text="{Binding Mark}" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  </Border>
+                  <StackPanel Grid.Column="1" Spacing="3">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                      <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="15" />
+                      <TextBlock Text="{Binding StateText}" Foreground="{Binding MarkBrush}" FontSize="12" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Classes="muted" Text="{Binding Why}" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding Where}" FontSize="12" TextWrapping="Wrap" Opacity="0.75" />
+                  </StackPanel>
+                  <Button Grid.Column="2" Classes="ghost" Margin="12,0,0,0" VerticalAlignment="Top" Content="{Binding ActionText}" Command="{Binding Action}" IsVisible="{Binding HasAction}" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
+      <!-- logs -->
+      <Border Classes="card" Padding="16,12">
+        <StackPanel Spacing="8">
+          <TextBlock Text="{x:Static app:L.LogsTitle}" FontWeight="SemiBold" />
+          <TextBlock Classes="muted" Text="{x:Static app:L.LogsHint}" TextWrapping="Wrap" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Classes="ghost" Content="{x:Static app:L.ActOpenLogs}" Command="{Binding OpenLogsCommand}" />
+            <Button Classes="ghost" Content="{x:Static app:L.ActCollectLogs}" Command="{Binding CollectLogsCommand}" />
+            <TextBlock Classes="muted" Text="{Binding LogsResult}" VerticalAlignment="Center" TextWrapping="Wrap" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <TextBlock Text="{x:Static app:L.FirstRunStepsTitle}" FontWeight="SemiBold" FontSize="16" />
 
       <!-- the one thing worth doing ahead: a Unity account -->
       <Border Classes="card" Padding="16,12" BorderBrush="#2F8CFF" BorderThickness="1">
@@ -28,24 +94,6 @@
           </StackPanel>
           <Button Grid.Column="1" Classes="primary" Margin="16,0,0,0" VerticalAlignment="Center" Content="{x:Static app:L.ActCreateAccount}" Command="{Binding CreateAccountCommand}" />
         </Grid>
-      </Border>
-
-      <!-- live status, the same as the banner -->
-      <Border Classes="card" Padding="16,12">
-        <StackPanel Spacing="6">
-          <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
-          <TextBlock Classes="muted" Text="{Binding Text}" TextWrapping="Wrap" />
-          <TextBlock Text="{Binding Detail}" FontSize="12" TextWrapping="Wrap" IsVisible="{Binding HasDetail}" />
-          <TextBlock Text="{Binding Error}" Foreground="{StaticResource Warn}" TextWrapping="Wrap" IsVisible="{Binding HasError}" />
-          <ProgressBar Value="{Binding Percent}" IsIndeterminate="{Binding !PercentKnown}" Height="6" MinHeight="6" IsVisible="{Binding !IsError}" />
-          <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
-            <Button Classes="ghost" Content="{x:Static app:L.ActSkip}" Command="{Binding SkipCommand}" IsVisible="{Binding CanSkip}" />
-            <Button Classes="primary" Content="{x:Static app:L.ActAllow}" Command="{Binding AllowCommand}" IsVisible="{Binding ShowAllow}" />
-            <Button Classes="primary" Content="{x:Static app:L.ActSignIn}" Command="{Binding OpenHubCommand}" IsVisible="{Binding ShowHub}" />
-            <Button Classes="primary" Content="{x:Static app:L.ActRetry}" Command="{Binding RetryCommand}" IsVisible="{Binding ShowRetry}" />
-            <Button Classes="ghost" Content="{x:Static app:L.ActLog}" Command="{Binding OpenLogCommand}" />
-          </StackPanel>
-        </StackPanel>
       </Border>
 
       <!-- the steps -->

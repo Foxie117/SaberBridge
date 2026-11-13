@@ -49,6 +49,12 @@ public sealed class Settings
     /// <summary>Unity has to run as a hidden normal editor here (no batch-mode license); see UnityRunner.</summary>
     public bool UnityHiddenWindow { get; set; }
 
+    /// <summary>The hidden editor could not work on a desktop of its own here; it runs with hidden windows instead.</summary>
+    public bool UnityOwnDesktopFailed { get; set; }
+
+    /// <summary>The first-run setup window was shown once (it opens by itself on the very first start).</summary>
+    public bool FirstRunGuideShown { get; set; }
+
     /// <summary>Unity Hub.exe picked by hand, when the app cannot find it by itself.</summary>
     public string? UnityHubPath { get; set; }
 
