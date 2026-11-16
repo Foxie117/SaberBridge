@@ -483,6 +483,8 @@
               <Button Classes="ghost" Content="{x:Static app:L.ActOpenLogs}" Command="{Binding OpenLogsFolderCommand}" />
               <Button Classes="ghost" Content="{x:Static app:L.ActCollectLogs}" Command="{Binding CollectLogsCommand}" />
             </StackPanel>
+            <TextBlock Classes="muted" Text="{x:Static app:L.DumpsHint}" TextWrapping="Wrap" />
+            <Button Classes="ghost" Content="{Binding CrashDumpsAction}" Command="{Binding ToggleCrashDumpsCommand}" />
             <TextBlock Classes="muted" Text="{Binding LogsResult}" TextWrapping="Wrap" />
           </StackPanel>
 

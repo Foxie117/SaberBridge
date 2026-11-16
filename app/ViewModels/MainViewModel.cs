@@ -569,6 +569,23 @@ public partial class MainViewModel : ObservableObject, IConversionListener
         }
     }
 
+    /// <summary>Windows keeps small crash dumps of Unity's processes in the logs folder (switched with one admin prompt).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CrashDumpsAction))]
+    private bool _crashDumps = OperatingSystem.IsWindows() && Diagnostics.DumpsEnabled();
+
+    public string CrashDumpsAction => CrashDumps ? L.ActDumpsOff : L.ActDumpsOn;
+
+    [RelayCommand]
+    private async Task ToggleCrashDumps()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        bool want = !CrashDumps;
+        bool ok = await Diagnostics.SetDumpsAsync(want);
+        CrashDumps = Diagnostics.DumpsEnabled();
+        LogsResult = ok ? (want ? L.DumpsOn : L.DumpsOff) : L.DumpsFailed;
+    }
+
     /// <summary>The very first start: the first-run window opens by itself, once.</summary>
     public bool FirstRunPending => !_settings.FirstRunGuideShown;
 

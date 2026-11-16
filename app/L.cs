@@ -397,6 +397,12 @@ public static class L
     public static string LogsHint => T("Программа записывает каждый шаг: запуски Unity, установку, ошибки. Если что-то зависло или сломалось — нажми «Собрать для отправки» и пришли получившийся zip.", "The app writes down every step: Unity runs, the setup, errors. If something hangs or breaks, press \"Collect for sending\" and send the zip.");
     public static string ActOpenLogs => T("Открыть папку", "Open folder");
     public static string ActCollectLogs => T("Собрать для отправки", "Collect for sending");
+    public static string DumpsHint => T("Если Unity падает при сборке (ошибка 0xC0000005), включи дампы падений: Windows сохранит снимок упавшего процесса в папку журналов, и он попадёт в zip. Нужны права администратора.", "If Unity crashes while building (error 0xC0000005), turn on crash dumps: Windows saves a snapshot of the crashed process into the logs folder and it goes into the zip. Needs administrator rights.");
+    public static string ActDumpsOn => T("Включить дампы падений", "Turn on crash dumps");
+    public static string ActDumpsOff => T("Выключить дампы падений", "Turn off crash dumps");
+    public static string DumpsOn => T("Дампы падений включены. Повтори конвертацию, потом собери журналы.", "Crash dumps are on. Run the conversion again, then collect the logs.");
+    public static string DumpsOff => T("Дампы падений выключены.", "Crash dumps are off.");
+    public static string DumpsFailed => T("Не получилось переключить дампы (окно администратора закрыто?).", "Could not switch crash dumps (was the administrator prompt closed?).");
     public static string LogsCollected(string name) => T($"Готово: {name} на рабочем столе", $"Done: {name} on the desktop");
 
     // ---- first-run window

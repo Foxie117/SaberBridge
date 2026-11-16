@@ -278,6 +278,35 @@ public static class UnityRunner
         string lastRaw = "";
         HashSet<string> seenWindows = new();
         HashSet<string> seenPhases = new();
+        HashSet<string> seenModules = new(StringComparer.OrdinalIgnoreCase);
+        DateTime startedLocal = DateTime.Now;
+        string[] ownFolders = { Path.GetDirectoryName(Path.GetDirectoryName(unityExe)) ?? "", projectPath, AppContext.BaseDirectory };
+        DateTime lastModules = DateTime.MinValue;
+
+        // DLLs from outside Windows and Unity loaded into Unity or its helpers (overlays, hooks, "boosters"): when a
+        // helper crashes with 0xC0000005 on one machine only, these are the suspects
+        void Modules()
+        {
+            if (!OperatingSystem.IsWindows()) return;
+            foreach (int pid in UnityDesktop.Tree(proc.Id))
+            {
+                string name = "?";
+                try
+                {
+                    using Process child = Process.GetProcessById(pid);
+                    name = child.ProcessName;
+                }
+                catch (Exception)
+                {
+                    continue; // gone
+                }
+
+                foreach (string m in Diagnostics.ForeignModules(pid, ownFolders))
+                {
+                    if (seenModules.Add(m)) AppLog.Write("diag", $"foreign module in {name} ({pid}): {Diagnostics.Describe(m)}");
+                }
+            }
+        }
 
         void Pump()
         {
@@ -361,6 +390,12 @@ public static class UnityRunner
                 await Task.Delay(tick++ < 100 ? 100 : 400, ct);
                 string? dialog = Look();
                 Pump();
+                if (DateTime.UtcNow - lastModules > TimeSpan.FromSeconds(2))
+                {
+                    lastModules = DateTime.UtcNow;
+                    Modules();
+                }
+
                 if (pos != lastPos)
                 {
                     lastPos = pos;
@@ -413,6 +448,13 @@ public static class UnityRunner
         Pump();
         result.ExitCode = proc.HasExited ? proc.ExitCode : -1;
         AppLog.Write("unity", $"finished in {Elapsed()}, exit {result.ExitCode}, converter {(result.ConverterStarted ? "ran" : "never started")}, problem {result.Problem ?? "none"}; last: {Cut(lastRaw)}");
+        if (OperatingSystem.IsWindows())
+        {
+            // what Windows recorded as crashed while Unity ran (Unity's helpers, and anything else for comparison)
+            foreach (Diagnostics.Crash c in Diagnostics.CrashesSince(startedLocal.AddSeconds(-5)))
+                AppLog.Write("diag", "windows crash record: " + Diagnostics.Format(c));
+        }
+
         return result;
     }
 

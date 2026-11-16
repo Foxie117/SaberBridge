@@ -40,6 +40,7 @@ public static class AppLog
         AppDomain.CurrentDomain.UnhandledException += (_, e) => Write("crash", e.ExceptionObject?.ToString() ?? "unknown");
         TaskScheduler.UnobservedTaskException += (_, e) => Write("task", e.Exception.ToString());
         CleanUp();
+        if (OperatingSystem.IsWindows()) Task.Run(Diagnostics.LogOwnModules);
     }
 
     // keep two weeks of journals and the last 40 Unity logs; a Unity log is a few MB each
@@ -109,6 +110,39 @@ public static class AppLog
             w.WriteLine($"Quest project prepared: {ProjectSetup.IsQuestImported}; PC project prepared: {!ProjectSetup.IsFirstImport}");
             foreach (DriveInfo d in DriveInfo.GetDrives().Where(d => d.IsReady && d.DriveType == DriveType.Fixed))
                 w.WriteLine($"Drive {d.Name} free {d.AvailableFreeSpace / 1073741824.0:0.0} GB of {d.TotalSize / 1073741824.0:0.0} GB");
+        }
+
+        if (OperatingSystem.IsWindows())
+        {
+            void Text(string name, Func<string> make)
+            {
+                try
+                {
+                    using StreamWriter w = new(zip.CreateEntry(name).Open(), new UTF8Encoding(true));
+                    w.Write(make());
+                }
+                catch (Exception e)
+                {
+                    Write("logs", $"could not write {name}: {e.Message}");
+                }
+            }
+
+            // Unity's own logs of its last editor runs and of its Package Manager (packages that "cannot be found")
+            string unityLogs = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Unity", "Editor");
+            foreach (string name in new[] { "Editor.log", "Editor-prev.log", "upm.log" })
+            {
+                string f = Path.Combine(unityLogs, name);
+                if (System.IO.File.Exists(f)) Add(f, "unity-editor/" + name);
+            }
+
+            // Windows' own crash records (why Unity's helpers die) and what else is loaded into processes
+            Text("windows-crashes.txt", () => Diagnostics.CrashReport(150));
+            Text("system-programs.txt", Diagnostics.SystemReport);
+            if (Directory.Exists(Diagnostics.DumpFolder))
+            {
+                foreach (FileInfo f in new DirectoryInfo(Diagnostics.DumpFolder).GetFiles("*.dmp").OrderByDescending(f => f.LastWriteTime).Take(3))
+                    Add(f.FullName, "dumps/" + f.Name);
+            }
         }
 
         Write("logs", $"collected into {zipPath}");
